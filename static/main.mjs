@@ -18,7 +18,8 @@ const defaultDiagram = [
 	"    C-->>B: Result;",
 	"    B-->>A: Response;",
 ].join("\n");
-document.getElementById("diagramDefinition").value = defaultDiagram;
+const diagramDefinition = document.getElementById("diagramDefinition");
+diagramDefinition.value = defaultDiagram;
 updateDiagram(defaultDiagram);
 
 const fns = {
@@ -35,15 +36,20 @@ const fns = {
 
 const updateButton = document.getElementById("update");
 updateButton.addEventListener("click", async () => {
+	updateButton.disabled = true;
 	const definition = document.getElementById("diagramDefinition").value;
 	await updateDiagram(definition);
 	sendText(getCurrentDiagramText());
 });
+diagramDefinition.addEventListener("input", async () => { updateButton.disabled = false; });
 
 const contextButton = document.getElementById("updateContext");
 contextButton.addEventListener("click", async () => {
+	contextButton.disabled = true;
 	sendText(getContextText());
 });
+const contextInput = document.getElementById("contextInput");
+contextInput.addEventListener("input", async () => { contextButton.disabled = false; });
 
 const errorCloseButton = document.getElementById("errorClose");
 const errorMessage = document.getElementById("errorMessage");

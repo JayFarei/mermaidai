@@ -132,8 +132,13 @@
 			background-color: #2ecc71;
 		}
 
-		#updateContext:hover {
-			background-color: #27ae60;
+		#updateContext:disabled {
+			background-color: #bdc3c7;
+			cursor: not-allowed;
+		}
+
+		#updateContext:disabled:hover {
+			background-color: #bdc3c7;
 		}
 
 		#toggleMute {
@@ -156,6 +161,19 @@
 		p {
 			line-height: 1.6;
 			color: #666;
+		}
+
+		button:hover {
+			background-color: #2980b9;
+		}
+
+		button:disabled {
+			background-color: #bdc3c7;
+			cursor: not-allowed;
+		}
+
+		button:disabled:hover {
+			background-color: #bdc3c7;
 		}
 		</style>
 	</head>
