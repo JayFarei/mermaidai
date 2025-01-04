@@ -33,13 +33,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	// indent the json logs if we're in dev mode
+	// make the logs easier to read in dev mode
 	if dev {
 		indenter := logutil.JSONIndenter{
 			W:      os.Stdout,
 			Indent: "  ",
 		}
-		log = slog.New(slog.NewJSONHandler(&indenter, nil))
+		options := &slog.HandlerOptions{
+			AddSource: true,
+		}
+		log = slog.New(slog.NewJSONHandler(&indenter, options))
 	}
 
 	// this route serves the webpage assets
