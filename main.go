@@ -35,7 +35,10 @@ func main() {
 
 	// indent the json logs if we're in dev mode
 	if dev {
-		indenter := logutil.Indenter{W: os.Stdout}
+		indenter := logutil.JSONIndenter{
+			W:      os.Stdout,
+			Indent: "  ",
+		}
 		log = slog.New(slog.NewJSONHandler(&indenter, nil))
 	}
 

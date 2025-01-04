@@ -6,14 +6,19 @@ import (
 	"io"
 )
 
-type Indenter struct {
+type JSONIndenter struct {
+	W      io.Writer
+	Prefix string
+	Indent string
+
 	b bytes.Buffer
-	W io.Writer
 }
 
-func (i *Indenter) Write(p []byte) (int, error) {
+func (i *JSONIndenter) Write(p []byte) (int, error) {
 	i.b.Reset()
-	json.Indent(&i.b, p, "", "  ")
+	if err := json.Indent(&i.b, p, i.Prefix, i.Indent); err != nil {
+		return 0, err
+	}
 	n, err := i.b.WriteTo(i.W)
 	return int(n), err
 }
