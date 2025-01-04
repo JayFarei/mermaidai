@@ -16,7 +16,10 @@ Start the server, and open the UI in your browser: http://localhost:8000
 mermaidai
 ```
 
-**Note**: If you don't have an `OPENAI_API_KEY` environment variable, you can pass it using the `--apikey` flag.
+Notes:
+
+* If you don't have an `OPENAI_API_KEY` environment variable, you can pass it using the `--apikey` flag.
+* You must click the "Update" buttons after manually editing any text.
 
 ## Screenshot
 
