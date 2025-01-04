@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/icholy/mermaidai/internal/logutil"
 	"github.com/icholy/mermaidai/internal/openai"
 )
 
@@ -30,6 +31,12 @@ func main() {
 	if client.APIKey == "" {
 		log.Error("no api key provided")
 		os.Exit(1)
+	}
+
+	// indent the json logs if we're in dev mode
+	if dev {
+		indenter := logutil.Indenter{W: os.Stdout}
+		log = slog.New(slog.NewJSONHandler(&indenter, nil))
 	}
 
 	// this route serves the webpage assets
