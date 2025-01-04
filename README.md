@@ -20,6 +20,7 @@ Notes:
 
 * If you don't have an `OPENAI_API_KEY` environment variable, you can pass it using the `--apikey` flag.
 * You must click the "Update" buttons after manually editing any text.
+* Don't read the FE code.
 
 ## Screenshot
 
