@@ -29,7 +29,7 @@ const fns = {
 			await updateDiagram(definition);
 			return { success: true, newDefinition: definition };
 		} catch (err) {
-			return { success: false, error: err.message };
+			return { error: err.message };
 		}
 	},
 };
@@ -137,9 +137,12 @@ channel.addEventListener("open", async () => {
 			instructions: [
 				"You are a helpful assistant.",
 				"You are an expert in writing mermaid diagrams.",
+				"When you speak, it is brief and to the point.",
 				"You only speak when asked a direct question.",
 				"You do not explain your actions unless asked.",
-				"When you speak, it is brief and to the point.",
+				"Stay quiet unless explicitly asked to speak.",
+				"If you encounter an error with tool use, fix the problem described in the error and try again.",
+				"After several failed tool use attempts request help from the user.",
 			].join("\n"),
 			tools: [
 				{
