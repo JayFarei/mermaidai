@@ -26,7 +26,7 @@ func main() {
 	flag.StringVar(&addr, "addr", ":8000", "http server address")
 	flag.StringVar(&client.APIKey, "apikey", os.Getenv("OPENAI_API_KEY"), "OpenAI API Key")
 	flag.StringVar(&model, "model", "gpt-4o-realtime-preview-2024-12-17", "Model to use")
-	flag.BoolVar(&dev, "dev", true, "dev mode")
+	flag.BoolVar(&dev, "dev", false, "dev mode")
 	flag.Parse()
 	if client.APIKey == "" {
 		log.Error("no api key provided")
