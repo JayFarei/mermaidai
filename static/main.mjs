@@ -6,6 +6,8 @@ async function updateDiagram(definition) {
 	const element = document.getElementById("diagram");
 	const { svg } = await mermaid.render('graphDiv', definition);
 	element.innerHTML = svg;
+	// Save to localStorage whenever diagram is updated
+	localStorage.setItem('mermaidDiagram', definition);
 }
 
 const defaultDiagram = [
@@ -18,9 +20,12 @@ const defaultDiagram = [
 	"    C-->>B: Result;",
 	"    B-->>A: Response;",
 ].join("\n");
+
+// Load saved diagram from localStorage or use default
+const savedDiagram = localStorage.getItem('mermaidDiagram') || defaultDiagram;
 const diagramDefinition = document.getElementById("diagramDefinition");
-diagramDefinition.value = defaultDiagram;
-updateDiagram(defaultDiagram);
+diagramDefinition.value = savedDiagram;
+updateDiagram(savedDiagram);
 
 const fns = {
 	async updateMermaidDefinition({ definition }) {
