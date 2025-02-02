@@ -5,7 +5,7 @@
 ## Install
 
 ```
-go install github.com/icholy/mermaidai@latest
+go install github.com/icholy/mermaidai@master
 ```
 
 ## Usage
