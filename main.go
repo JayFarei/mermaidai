@@ -4,7 +4,7 @@ import (
 	"embed"
 	"encoding/json"
 	"flag"
-	"io/fs"
+	// "io/fs"
 	"log/slog"
 	"net/http"
 	"os"
@@ -48,10 +48,10 @@ func main() {
 	// this route serves the webpage assets
 	// in dev mode, we read from the filesystem so that we don't need to
 	// keep restarting the server.
-	static, _ := fs.Sub(embedded, "static")
-	if dev {
-		static = os.DirFS("static")
-	}
+	// static, _ := fs.Sub(embedded, "static")
+	// if dev {
+	static := os.DirFS("static")
+	// }
 	http.Handle("GET /", http.FileServerFS(static))
 
 	// this endpoint provides the api key for the webpage to use.

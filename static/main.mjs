@@ -87,6 +87,32 @@ toggleMuteButton.addEventListener('click', () => {
 	toggleMuteButton.classList.toggle('muted', !audioTrack.enabled);
 });
 
+// Setup disconnect functionality
+const disconnectButton = document.getElementById('disconnect');
+disconnectButton.addEventListener('click', () => {
+	// Close the peer connection
+	peer?.close();
+
+	// Stop all tracks
+	for (const track of ms?.getTracks() ?? []) {
+		track.stop();
+	}
+
+	// Reset UI state
+	const status = document.getElementById("status");
+	status.textContent = "Disconnected";
+	status.className = "status disconnected";
+
+	// Disable buttons
+	toggleMuteButton.disabled = true;
+	disconnectButton.disabled = true;
+	updateButton.disabled = true;
+	contextButton.disabled = true;
+
+	// Remove any audio elements
+	document.querySelectorAll('audio').forEach(el => el.remove());
+});
+
 function getContextText() {
 	const context = document.getElementById("contextInput").value;
 	if (!context.trim()) return "";

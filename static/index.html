@@ -45,6 +45,12 @@
 			border: 1px solid #c3e6cb;
 		}
 
+		.status.disconnected {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
 		#errorContainer {
 			position: fixed;
 			top: -100px;
@@ -158,6 +164,15 @@
 			background-color: #7f8c8d;
 		}
 
+		#disconnect {
+			background-color: #e74c3c;
+			margin-left: 10px;
+		}
+
+		#disconnect:hover {
+			background-color: #c0392b;
+		}
+
 		p {
 			line-height: 1.6;
 			color: #666;
@@ -186,6 +201,7 @@
 			<h1>OpenAI Realtime API: Mermaid Editor</h1>
 			<div id="status" class="status connecting">Connecting to OpenAI...</div>
 			<button id="toggleMute">Mute Mic</button>
+			<button id="disconnect">Disconnect</button>
 			<pre id="diagram" class="mermaid"></pre>
 
 			<label class="label" for="diagramDefinition">Diagram Definition:</label>
