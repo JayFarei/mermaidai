@@ -45,6 +45,28 @@ func main() {
 		log = slog.New(slog.NewJSONHandler(&indenter, options))
 	}
 
+	// Add the summarize endpoint
+	http.HandleFunc("POST /summarize", func(w http.ResponseWriter, r *http.Request) {
+		var req openai.ChatRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			log.Error("failed to decode request", "err", err)
+			http.Error(w, "invalid request", http.StatusBadRequest)
+			return
+		}
+
+		completion, err := client.CreateChatCompletion(r.Context(), req)
+		if err != nil {
+			log.Error("failed to get completion", "err", err)
+			http.Error(w, "failed to get completion", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(completion); err != nil {
+			log.Error("failed to encode response", "err", err)
+		}
+	})
+
 	// this route serves the webpage assets
 	// in dev mode, we read from the filesystem so that we don't need to
 	// keep restarting the server.

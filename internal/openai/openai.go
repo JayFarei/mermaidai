@@ -3,6 +3,7 @@ package openai
 import (
 	"bytes"
 	"cmp"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -76,17 +77,104 @@ type ClientSecret struct {
 	ExpiresAt int    `json:"expires_at"`
 }
 
-func (c *Client) CreateRealtimeSession(input RealtimeSessionInput) (*RealtimeSessionOutput, error) {
-	var output RealtimeSessionOutput
-	if err := c.do(
-		http.MethodPost,
-		"https://api.openai.com/v1/realtime/sessions",
-		input,
-		&output,
-	); err != nil {
-		return nil, err
+type RealtimeSession struct {
+	Model        string       `json:"model"`
+	ClientSecret ClientSecret `json:"client_secret"`
+}
+
+// ChatCompletion represents a response from the chat completion API
+type ChatCompletion struct {
+	ID      string `json:"id"`
+	Object  string `json:"object"`
+	Created int64  `json:"created"`
+	Model   string `json:"model"`
+	Choices []struct {
+		Message struct {
+			Role    string `json:"role"`
+			Content string `json:"content"`
+		} `json:"message"`
+		FinishReason string `json:"finish_reason"`
+	} `json:"choices"`
+}
+
+// ChatRequest represents a request to the chat completion API
+type ChatRequest struct {
+	Model    string        `json:"model"`
+	Messages []ChatMessage `json:"messages"`
+}
+
+// ChatMessage represents a message in the chat completion request
+type ChatMessage struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+// CreateChatCompletion sends a request to the OpenAI chat completion API
+func (c *Client) CreateChatCompletion(ctx context.Context, req ChatRequest) (*ChatCompletion, error) {
+	body, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
 	}
-	return &output, nil
+
+	httpReq, err := http.NewRequestWithContext(
+		ctx,
+		"POST",
+		"https://api.openai.com/v1/chat/completions",
+		bytes.NewReader(body),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Authorization", "Bearer "+c.APIKey)
+
+	resp, err := c.httpClient().Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("do request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status: %s", resp.Status)
+	}
+
+	var completion ChatCompletion
+	if err := json.NewDecoder(resp.Body).Decode(&completion); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+
+	return &completion, nil
+}
+
+func (c *Client) CreateRealtimeSession(input RealtimeSessionInput) (*RealtimeSession, error) {
+	body, err := json.Marshal(input)
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+	req, err := http.NewRequest(
+		"POST",
+		"https://api.openai.com/v1/realtime/sessions",
+		bytes.NewReader(body),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+c.APIKey)
+	resp, err := c.httpClient().Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("do request: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status: %s", resp.Status)
+	}
+	var session RealtimeSession
+	if err := json.NewDecoder(resp.Body).Decode(&session); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+	return &session, nil
 }
 
 type Error struct {

@@ -5,7 +5,11 @@ mermaid.initialize({ startOnLoad: false });
 // Add version history tracking
 const diagramVersions = [];
 
-function addDiagramVersion(definition) {
+// Track the last user query and its response
+let lastUserQuery = "";
+let lastAssistantResponse = "";
+
+function addDiagramVersion(definition, query = "") {
   const version = {
     id: diagramVersions.length + 1,
     timestamp: new Date().toISOString(),
@@ -14,10 +18,44 @@ function addDiagramVersion(definition) {
       .replace(/[^a-zA-Z0-9 ]/g, "")
       .trim(),
     definition: definition,
+    query: query,
+    summary: "", // Will be populated by the LLM or static for initial version
   };
   diagramVersions.push(version);
-  updateVersionHistory();
+
+  // For the first version, set a static summary
+  if (diagramVersions.length === 1) {
+    version.summary = {
+      userIntent: "Initial diagram",
+      technicalChanges: getInitialDiagramType(definition),
+    };
+    updateVersionHistory();
+    return version;
+  }
+
+  // For subsequent versions, get a summary of changes
+  const prevVersion = diagramVersions[diagramVersions.length - 2];
+  requestChangeSummary(prevVersion.definition, definition, version.id);
+
   return version;
+}
+
+// Helper function to determine the initial diagram type
+function getInitialDiagramType(definition) {
+  const firstLine = definition.split("\n")[0].toLowerCase();
+  const participants = definition
+    .split("\n")
+    .filter((line) => line.includes("participant")).length;
+
+  if (firstLine.includes("sequence")) {
+    return `Sequence diagram with ${participants} participants`;
+  } else if (firstLine.includes("flow")) {
+    return "Flow diagram";
+  } else if (firstLine.includes("class")) {
+    return "Class diagram";
+  } else {
+    return "Mermaid diagram";
+  }
 }
 
 function updateVersionHistory() {
@@ -25,17 +63,120 @@ function updateVersionHistory() {
   historyElement.innerHTML = diagramVersions
     .map(
       (version) => `
-		<div class="version-item" data-version="${version.id}">
-			<span class="version-number">#${version.id}</span>
-			<span class="version-identifier">${version.identifier}</span>
-			<span class="version-time">${new Date(
-        version.timestamp
-      ).toLocaleTimeString()}</span>
-			<button onclick="window.restoreVersion(${version.id})">Restore</button>
-		</div>
-	`
+        <div class="version-item">
+          <div class="version-meta">
+            <div>
+              <span>#${version.id}</span>
+              <span>${new Date(version.timestamp).toLocaleTimeString()}</span>
+            </div>
+            <button 
+              class="version-restore" 
+              onclick="window.restoreVersion(${version.id})"
+            >
+              Restore
+            </button>
+          </div>
+          <div class="version-content">
+            ${
+              version.summary
+                ? `<div class="version-query">${version.summary.userIntent}</div>
+                   <div class="version-summary">${version.summary.technicalChanges}</div>`
+                : `<div class="version-query">Analyzing changes...</div>`
+            }
+          </div>
+        </div>
+      `
     )
     .join("");
+}
+
+async function requestChangeSummary(oldDefinition, newDefinition, versionId) {
+  const version = diagramVersions.find((v) => v.id === versionId);
+
+  // Skip if there's no actual change
+  if (oldDefinition === newDefinition) {
+    version.summary = {
+      userIntent: "No changes made",
+      technicalChanges: "Diagram unchanged",
+    };
+    updateVersionHistory();
+    return;
+  }
+
+  // Create a focused prompt for the summary
+  const prompt = {
+    model: "gpt-3.5-turbo",
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are a diagram change analyzer. Provide brief, focused summaries of changes to sequence diagrams.",
+      },
+      {
+        role: "user",
+        content: `Summarize this diagram change in two parts:
+1. User's intent: "${lastUserQuery}"
+2. Technical changes made (compare):
+
+Previous:
+${oldDefinition}
+
+Current:
+${newDefinition}
+
+Respond in JSON format:
+{
+  "userIntent": "2-3 word summary of user request",
+  "technicalChanges": "2-3 word summary of actual changes"
+}`,
+      },
+    ],
+  };
+
+  try {
+    const response = await fetch("/summarize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(prompt),
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to get summary");
+    }
+
+    const completion = await response.json();
+    // Extract the actual content from the completion response
+    if (
+      completion.choices &&
+      completion.choices[0] &&
+      completion.choices[0].message
+    ) {
+      try {
+        const summaryData = JSON.parse(completion.choices[0].message.content);
+        version.summary = summaryData;
+      } catch (parseError) {
+        console.error("Failed to parse summary JSON:", parseError);
+        version.summary = {
+          userIntent:
+            completion.choices[0].message.content.split("\n")[0] ||
+            "Parse error",
+          technicalChanges:
+            completion.choices[0].message.content.split("\n")[1] ||
+            "See changes in diagram",
+        };
+      }
+    } else {
+      throw new Error("Invalid completion response format");
+    }
+    updateVersionHistory();
+  } catch (error) {
+    console.error("Failed to get summary:", error);
+    version.summary = {
+      userIntent: lastUserQuery.slice(0, 50) + "...",
+      technicalChanges: "Compare diagrams manually",
+    };
+    updateVersionHistory();
+  }
 }
 
 window.restoreVersion = async (versionId) => {
@@ -51,6 +192,70 @@ async function updateDiagram(definition) {
   const element = document.getElementById("diagram");
   const { svg } = await mermaid.render("graphDiv", definition);
   element.innerHTML = svg;
+  return svg;
+}
+
+// Export functions
+async function exportAsSVG() {
+  try {
+    const definition = document.getElementById("diagramDefinition").value;
+    const svg = await updateDiagram(definition);
+    const blob = new Blob([svg], { type: "image/svg+xml" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "diagram.svg";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    showError("Failed to export as SVG: " + error.message);
+  }
+}
+
+async function exportAsPNG() {
+  try {
+    const definition = document.getElementById("diagramDefinition").value;
+    const svg = await updateDiagram(definition);
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+
+    // Create a temporary img element to load the SVG
+    const img = new Image();
+    const svgBlob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(svgBlob);
+
+    img.onload = () => {
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
+
+      // Convert to PNG and download
+      const pngUrl = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.href = pngUrl;
+      link.download = "diagram.png";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    };
+
+    img.src = url;
+  } catch (error) {
+    showError("Failed to export as PNG: " + error.message);
+  }
+}
+
+// Copy to clipboard function
+async function copyToClipboard() {
+  try {
+    const definition = document.getElementById("diagramDefinition").value;
+    await navigator.clipboard.writeText(definition);
+  } catch (error) {
+    showError("Failed to copy to clipboard: " + error.message);
+  }
 }
 
 const defaultDiagram = [
@@ -63,16 +268,21 @@ const defaultDiagram = [
   "    C-->>B: Result;",
   "    B-->>A: Response;",
 ].join("\n");
+
 const diagramDefinition = document.getElementById("diagramDefinition");
 diagramDefinition.value = defaultDiagram;
 updateDiagram(defaultDiagram);
+
+// Event Listeners
+document.getElementById("copyBtn").addEventListener("click", copyToClipboard);
+document.getElementById("downloadSvg").addEventListener("click", exportAsSVG);
+document.getElementById("downloadPng").addEventListener("click", exportAsPNG);
 
 const fns = {
   async updateMermaidDefinition({ definition }) {
     document.getElementById("diagramDefinition").value = definition;
     try {
       await updateDiagram(definition);
-      addDiagramVersion(definition);
       return { success: true, newDefinition: definition };
     } catch (err) {
       return { error: err.message };
@@ -88,6 +298,7 @@ updateButton.addEventListener("click", async () => {
   addDiagramVersion(definition);
   sendText(getCurrentDiagramText());
 });
+
 diagramDefinition.addEventListener("input", async () => {
   updateButton.disabled = false;
 });
@@ -97,6 +308,7 @@ contextButton.addEventListener("click", async () => {
   contextButton.disabled = true;
   sendText(getContextText());
 });
+
 const contextInput = document.getElementById("contextInput");
 contextInput.addEventListener("input", async () => {
   contextButton.disabled = false;
@@ -189,6 +401,14 @@ function getCurrentDiagramText() {
 const channel = peer.createDataChannel("response");
 
 function sendText(text) {
+  // Only capture actual user queries, not system messages
+  if (
+    !text.startsWith("Additional Context:") &&
+    !text.startsWith("Here is the current diagram")
+  ) {
+    lastUserQuery = text;
+  }
+
   channel.send(
     JSON.stringify({
       type: "conversation.item.create",
@@ -209,6 +429,11 @@ function sendText(text) {
 // The "open" event will fire once the RTC connection is established.
 // Once that happens, we can send it instructions about the tools we have.
 channel.addEventListener("open", async () => {
+  // Update connection status
+  const status = document.getElementById("status");
+  status.textContent = "Connected to OpenAI";
+  status.className = "status connected";
+
   channel.send(
     JSON.stringify({
       type: "session.update",
@@ -267,14 +492,36 @@ channel.addEventListener("message", async (ev) => {
     status.className = "status connected";
   }
 
-  // this is the LLM asking to run a function
+  // Capture assistant's responses
+  if (msg.type === "response.message.content.part") {
+    lastAssistantResponse += msg.content;
+  }
+
+  if (msg.type === "response.message.content.done") {
+    // Clear the response buffer after processing
+    lastAssistantResponse = "";
+  }
+
+  // Track version history for LLM-initiated changes
   if (msg.type === "response.function_call_arguments.done") {
     const fn = fns[msg.name];
-    if (!fn) {
-      return;
-    }
+    if (!fn) return;
+
     const args = JSON.parse(msg.arguments);
     const result = await fn(args);
+
+    if (msg.name === "updateMermaidDefinition" && result.success) {
+      const prevVersion = diagramVersions[diagramVersions.length - 1];
+      addDiagramVersion(result.newDefinition, lastUserQuery);
+      if (prevVersion) {
+        requestChangeSummary(
+          prevVersion.definition,
+          result.newDefinition,
+          diagramVersions.length
+        );
+      }
+    }
+
     channel.send(
       JSON.stringify({
         type: "conversation.item.create",
@@ -331,3 +578,15 @@ try {
 
 // Initialize with the default diagram version
 addDiagramVersion(defaultDiagram);
+
+// Add styles for the summary
+const style = document.createElement("style");
+style.textContent = `
+  .version-summary {
+    font-size: 0.75rem;
+    color: #64748b;
+    margin-top: 0.25rem;
+    font-style: italic;
+  }
+`;
+document.head.appendChild(style);
