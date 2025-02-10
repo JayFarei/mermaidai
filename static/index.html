@@ -1,218 +1,447 @@
 <!DOCTYPE html>
 <html lang="en">
-	<head>
-		<meta charset="UTF-8">
-		<meta name="viewport" content="width=device-width, initial-scale=1.0">
-		<title>JavaScript Playground</title>
-		<style>
-		body {
-			font-family: 'Segoe UI', Arial, sans-serif;
-			max-width: 1200px;
-			margin: 0 auto;
-			padding: 20px;
-			background-color: #f5f5f5;
-			color: #333;
-		}
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Talk with your diagrams</title>
+    <style>
+      :root {
+        --primary-color: #3498db;
+        --secondary-color: #2ecc71;
+        --danger-color: #e74c3c;
+        --text-color: #2c3e50;
+        --border-color: #e2e8f0;
+        --bg-color: #f8fafc;
+      }
 
-		h1 {
-			color: #2c3e50;
-			border-bottom: 2px solid #3498db;
-			padding-bottom: 10px;
-		}
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
 
-		.container {
-			max-width: 800px;
-			margin: 0 auto;
-		}
+      body {
+        font-family: "Segoe UI", Arial, sans-serif;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
 
-		.status {
-			display: inline-block;
-			padding: 8px 16px;
-			border-radius: 4px;
-			font-size: 14px;
-			margin-bottom: 20px;
-		}
+      /* Top Bar */
+      .top-bar {
+        background-color: white;
+        padding: 1rem 2rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+      }
 
-		.status.connecting {
-			background-color: #ffeeba;
-			color: #856404;
-			border: 1px solid #ffeeba;
-		}
+      .top-bar-right {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+      }
 
-		.status.connected {
-			background-color: #d4edda;
-			color: #155724;
-			border: 1px solid #c3e6cb;
-		}
+      .logo {
+        width: 32px;
+        height: 32px;
+      }
 
-		.status.disconnected {
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
+      .app-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--text-color);
+      }
 
-		#errorContainer {
-			position: fixed;
-			top: -100px;
-			left: 0;
-			right: 0;
-			background-color: #f8d7da;
-			color: #721c24;
-			padding: 15px;
-			border: 1px solid #f5c6cb;
-			border-radius: 0 0 8px 8px;
-			margin: 0 auto;
-			max-width: 800px;
-			z-index: 1000;
-			transition: top 0.3s ease-in-out;
-			display: flex;
-			justify-content: space-between;
-			align-items: center;
-		}
+      /* Main Layout */
+      .main-container {
+        flex: 1;
+        display: flex;
+        overflow: hidden;
+      }
 
-		#errorContainer.show {
-			top: 0;
-		}
+      /* Left Sidebar */
+      .sidebar {
+        width: 320px;
+        background-color: white;
+        border-right: 1px solid var(--border-color);
+        display: flex;
+        flex-direction: column;
+      }
 
-		#errorClose {
-			background: none;
-			border: none;
-			color: #721c24;
-			font-size: 20px;
-			cursor: pointer;
-			padding: 0 5px;
-			margin: 0;
-		}
+      .sidebar-section {
+        padding: 1rem;
+        border-bottom: 1px solid var(--border-color);
+      }
 
-		#errorClose:hover {
-			opacity: 0.7;
-		}
+      .sidebar-section h2 {
+        font-size: 0.875rem;
+        text-transform: uppercase;
+        color: #64748b;
+        margin-bottom: 0.5rem;
+      }
 
-		#diagram {
-			background-color: white;
-			padding: 20px;
-			border-radius: 8px;
-			box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-			margin: 20px 0;
-			width: 100%;
-			box-sizing: border-box;
-		}
+      /* Main Content */
+      .content {
+        flex: 1;
+        padding: 1.5rem;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        max-width: 1200px;
+        margin: 0 auto;
+        width: 100%;
+      }
 
-		#diagramDefinition, #contextInput {
-			width: 100%;
-			padding: 15px;
-			border: 1px solid #ddd;
-			border-radius: 8px;
-			font-family: monospace;
-			font-size: 14px;
-			resize: vertical;
-			background-color: white;
-			box-sizing: border-box;
-			margin: 20px 0;
-		}
+      /* Diagram Area */
+      .diagram-container {
+        background-color: white;
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        min-height: 300px;
+        display: flex;
+        justify-content: center;
+      }
 
-		.label {
-			font-weight: bold;
-			color: #2c3e50;
-			margin-bottom: 5px;
-			display: block;
-		}
+      .diagram-container pre {
+        width: 100%;
+        display: flex;
+        justify-content: center;
+      }
 
-		button {
-			background-color: #3498db;
-			color: white;
-			border: none;
-			padding: 12px 24px;
-			border-radius: 6px;
-			cursor: pointer;
-			font-size: 16px;
-			transition: background-color 0.3s;
-			margin-bottom: 20px;
-		}
+      .diagram-container svg {
+        max-width: 100%;
+        height: auto;
+      }
 
-		button:hover {
-			background-color: #2980b9;
-		}
+      /* Controls */
+      .controls {
+        display: flex;
+        gap: 0.5rem;
+      }
 
-		#updateContext {
-			background-color: #2ecc71;
-		}
+      /* Inputs */
+      textarea {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid var(--border-color);
+        border-radius: 0.375rem;
+        font-family: monospace;
+        font-size: 0.875rem;
+        resize: vertical;
+        min-height: 100px;
+      }
 
-		#updateContext:disabled {
-			background-color: #bdc3c7;
-			cursor: not-allowed;
-		}
+      /* Buttons */
+      button {
+        padding: 0.5rem 1rem;
+        border: none;
+        border-radius: 0.375rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: background-color 0.2s;
+      }
 
-		#updateContext:disabled:hover {
-			background-color: #bdc3c7;
-		}
+      .btn-primary {
+        background-color: var(--primary-color);
+        color: white;
+      }
 
-		#toggleMute {
-			background-color: #e74c3c;
-			margin-left: 10px;
-		}
+      .btn-primary:hover {
+        background-color: #2980b9;
+      }
 
-		#toggleMute:hover {
-			background-color: #c0392b;
-		}
+      .btn-secondary {
+        background-color: white;
+        color: var(--text-color);
+        border: 1px solid var(--border-color);
+      }
 
-		#toggleMute.muted {
-			background-color: #95a5a6;
-		}
+      .btn-secondary:hover {
+        background-color: #f1f5f9;
+      }
 
-		#toggleMute.muted:hover {
-			background-color: #7f8c8d;
-		}
+      .btn-danger {
+        background-color: var(--danger-color);
+        color: white;
+      }
 
-		#disconnect {
-			background-color: #e74c3c;
-			margin-left: 10px;
-		}
+      .btn-danger:hover {
+        background-color: #c0392b;
+      }
 
-		#disconnect:hover {
-			background-color: #c0392b;
-		}
+      .btn-danger.muted {
+        background-color: #95a5a6;
+      }
 
-		p {
-			line-height: 1.6;
-			color: #666;
-		}
+      .btn-danger.muted:hover {
+        background-color: #7f8c8d;
+      }
 
-		button:hover {
-			background-color: #2980b9;
-		}
+      /* Status */
+      .status {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 500;
+      }
 
-		button:disabled {
-			background-color: #bdc3c7;
-			cursor: not-allowed;
-		}
+      .status.connecting {
+        background-color: #fef3c7;
+        color: #92400e;
+      }
 
-		button:disabled:hover {
-			background-color: #bdc3c7;
-		}
-		</style>
-	</head>
-	<body>
-		<div id="errorContainer">
-			<span id="errorMessage"></span>
-			<button id="errorClose">&times;</button>
-		</div>
-		<div class="container">
-			<h1>OpenAI Realtime API: Mermaid Editor</h1>
-			<div id="status" class="status connecting">Connecting to OpenAI...</div>
-			<button id="toggleMute">Mute Mic</button>
-			<button id="disconnect">Disconnect</button>
-			<pre id="diagram" class="mermaid"></pre>
+      .status.connected {
+        background-color: #dcfce7;
+        color: #166534;
+      }
 
-			<label class="label" for="diagramDefinition">Diagram Definition:</label>
-			<textarea id="diagramDefinition" rows="10" cols="50"></textarea>
-			<button id="update">Update Diagram</button>
+      .status.disconnected {
+        background-color: #fee2e2;
+        color: #991b1b;
+      }
 
-			<label class="label" for="contextInput">Context / Instructions:</label>
-			<textarea id="contextInput" rows="3" placeholder="Add any context or specific instructions here..."></textarea>
-			<button id="updateContext">Update Context</button>
-		</div>
-		<script type="module" src="main.mjs"></script>
-	</body>
+      /* Version History */
+      .version-item {
+        padding: 0.75rem;
+        border: 1px solid var(--border-color);
+        border-radius: 0.375rem;
+        margin-bottom: 0.5rem;
+        transition: border-color 0.2s;
+      }
+
+      .version-item:hover {
+        border-color: var(--primary-color);
+      }
+
+      .version-meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.75rem;
+        color: #64748b;
+        margin-bottom: 0.5rem;
+      }
+
+      .version-restore {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+        color: var(--primary-color);
+        border: 1px solid currentColor;
+        border-radius: 0.25rem;
+        background: transparent;
+      }
+
+      .version-restore:hover {
+        background-color: var(--primary-color);
+        color: white;
+      }
+
+      .version-identifier {
+        font-weight: 500;
+        color: var(--text-color);
+        margin-bottom: 0.25rem;
+      }
+
+      .version-query {
+        font-size: 0.75rem;
+        color: #64748b;
+        margin-bottom: 0.25rem;
+        font-style: italic;
+      }
+
+      .version-summary {
+        font-size: 0.75rem;
+        color: #64748b;
+        margin-top: 0.25rem;
+        padding-top: 0.25rem;
+        border-top: 1px dashed var(--border-color);
+      }
+
+      /* Error Container */
+      #errorContainer {
+        position: fixed;
+        top: -100px;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: #fee2e2;
+        color: #991b1b;
+        padding: 1rem;
+        border-radius: 0.375rem;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        transition: top 0.3s ease-in-out;
+        z-index: 50;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+      }
+
+      #errorContainer.show {
+        top: 1rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="errorContainer">
+      <span id="errorMessage"></span>
+      <button class="btn-secondary" id="errorClose">&times;</button>
+    </div>
+
+    <!-- Top Bar -->
+    <div class="top-bar">
+      <svg
+        class="logo"
+        viewBox="0 0 24 24"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M12 3C7.58172 3 4 6.58172 4 11C4 13.9608 5.60879 16.5405 8 17.9297V19C8 20.1046 8.89543 21 10 21H14C15.1046 21 16 20.1046 16 19V17.9297C18.3912 16.5405 20 13.9608 20 11C20 6.58172 16.4183 3 12 3Z"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+        <path
+          d="M12 7C10.3431 7 9 8.34315 9 10C9 11.6569 10.3431 13 12 13C13.6569 13 15 11.6569 15 10C15 8.34315 13.6569 7 12 7Z"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+        <path
+          d="M12 13V15"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+        <path
+          d="M9 17L12 15L15 17"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
+      <h1 class="app-title">Talk with your diagrams</h1>
+      <div class="top-bar-right">
+        <div class="status connecting" id="status">Connecting to OpenAI...</div>
+        <button class="btn-danger" id="toggleMute">Mute Mic</button>
+        <button class="btn-danger" id="disconnect">Disconnect</button>
+      </div>
+    </div>
+
+    <!-- Main Layout -->
+    <div class="main-container">
+      <!-- Left Sidebar -->
+      <div class="sidebar">
+        <div class="sidebar-section">
+          <h2>System Context</h2>
+          <textarea
+            id="contextInput"
+            placeholder="Add any context or specific instructions here..."
+          ></textarea>
+          <button class="btn-primary" id="updateContext">Update Context</button>
+        </div>
+        <div class="sidebar-section">
+          <h2>Version History</h2>
+          <div id="versionHistory"></div>
+        </div>
+      </div>
+
+      <!-- Main Content -->
+      <div class="content">
+        <div class="diagram-container">
+          <pre id="diagram" class="mermaid"></pre>
+        </div>
+
+        <textarea
+          id="diagramDefinition"
+          rows="8"
+          placeholder="Enter your diagram definition here..."
+        ></textarea>
+
+        <div class="controls">
+          <button class="btn-primary" id="update">Update Diagram</button>
+          <button class="btn-secondary" id="copyBtn">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M8 4V16C8 17.1046 8.89543 18 10 18H20C21.1046 18 22 17.1046 22 16V7.41421C22 6.88378 21.7893 6.37507 21.4142 6L18 2.58579C17.6249 2.21071 17.1162 2 16.5858 2H10C8.89543 2 8 2.89543 8 4Z"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M16 18V20C16 21.1046 15.1046 22 14 22H4C2.89543 22 2 21.1046 2 20V8C2 6.89543 2.89543 6 4 6H6"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+            Copy
+          </button>
+          <button class="btn-secondary" id="downloadSvg">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M4 16L4 17C4 18.6569 5.34315 20 7 20L17 20C18.6569 20 20 18.6569 20 17L20 16M16 12L12 16M12 16L8 12M12 16L12 4"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+            Download SVG
+          </button>
+          <button class="btn-secondary" id="downloadPng">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M4 16L4 17C4 18.6569 5.34315 20 7 20L17 20C18.6569 20 20 18.6569 20 17L20 16M16 12L12 16M12 16L8 12M12 16L12 4"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+            Download PNG
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="main.mjs"></script>
+  </body>
 </html>
-

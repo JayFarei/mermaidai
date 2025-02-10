@@ -1,77 +1,340 @@
-import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
 
 mermaid.initialize({ startOnLoad: false });
 
+// Add version history tracking
+const diagramVersions = [];
+
+// Track the last user query and its response
+let lastUserQuery = "";
+let lastAssistantResponse = "";
+
+function addDiagramVersion(definition, query = "") {
+  const version = {
+    id: diagramVersions.length + 1,
+    timestamp: new Date().toISOString(),
+    identifier: definition
+      .split("\n")[0]
+      .replace(/[^a-zA-Z0-9 ]/g, "")
+      .trim(),
+    definition: definition,
+    query: query,
+    summary: "", // Will be populated by the LLM or static for initial version
+  };
+  diagramVersions.push(version);
+
+  // For the first version, set a static summary
+  if (diagramVersions.length === 1) {
+    version.summary = {
+      userIntent: "Initial diagram",
+      technicalChanges: getInitialDiagramType(definition),
+    };
+    updateVersionHistory();
+    return version;
+  }
+
+  // For subsequent versions, get a summary of changes
+  const prevVersion = diagramVersions[diagramVersions.length - 2];
+  requestChangeSummary(prevVersion.definition, definition, version.id);
+
+  return version;
+}
+
+// Helper function to determine the initial diagram type
+function getInitialDiagramType(definition) {
+  const firstLine = definition.split("\n")[0].toLowerCase();
+  const participants = definition
+    .split("\n")
+    .filter((line) => line.includes("participant")).length;
+
+  if (firstLine.includes("sequence")) {
+    return `Sequence diagram with ${participants} participants`;
+  } else if (firstLine.includes("flow")) {
+    return "Flow diagram";
+  } else if (firstLine.includes("class")) {
+    return "Class diagram";
+  } else {
+    return "Mermaid diagram";
+  }
+}
+
+function updateVersionHistory() {
+  const historyElement = document.getElementById("versionHistory");
+  historyElement.innerHTML = diagramVersions
+    .map(
+      (version) => `
+        <div class="version-item">
+          <div class="version-meta">
+            <div>
+              <span>#${version.id}</span>
+              <span>${new Date(version.timestamp).toLocaleTimeString()}</span>
+            </div>
+            <button 
+              class="version-restore" 
+              onclick="window.restoreVersion(${version.id})"
+            >
+              Restore
+            </button>
+          </div>
+          <div class="version-content">
+            ${
+              version.summary
+                ? `<div class="version-query">${version.summary.userIntent}</div>
+                   <div class="version-summary">${version.summary.technicalChanges}</div>`
+                : `<div class="version-query">Analyzing changes...</div>`
+            }
+          </div>
+        </div>
+      `
+    )
+    .join("");
+}
+
+async function requestChangeSummary(oldDefinition, newDefinition, versionId) {
+  const version = diagramVersions.find((v) => v.id === versionId);
+
+  // Skip if there's no actual change
+  if (oldDefinition === newDefinition) {
+    version.summary = {
+      userIntent: "No changes made",
+      technicalChanges: "Diagram unchanged",
+    };
+    updateVersionHistory();
+    return;
+  }
+
+  // Create a focused prompt for the summary
+  const prompt = {
+    model: "gpt-3.5-turbo",
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are a diagram change analyzer. Provide brief, focused summaries of changes to sequence diagrams.",
+      },
+      {
+        role: "user",
+        content: `Summarize this diagram change in two parts:
+1. User's intent: "${lastUserQuery}"
+2. Technical changes made (compare):
+
+Previous:
+${oldDefinition}
+
+Current:
+${newDefinition}
+
+Respond in JSON format:
+{
+  "userIntent": "2-3 word summary of user request",
+  "technicalChanges": "2-3 word summary of actual changes"
+}`,
+      },
+    ],
+  };
+
+  try {
+    const response = await fetch("/summarize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(prompt),
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to get summary");
+    }
+
+    const completion = await response.json();
+    // Extract the actual content from the completion response
+    if (
+      completion.choices &&
+      completion.choices[0] &&
+      completion.choices[0].message
+    ) {
+      try {
+        const summaryData = JSON.parse(completion.choices[0].message.content);
+        version.summary = summaryData;
+      } catch (parseError) {
+        console.error("Failed to parse summary JSON:", parseError);
+        version.summary = {
+          userIntent:
+            completion.choices[0].message.content.split("\n")[0] ||
+            "Parse error",
+          technicalChanges:
+            completion.choices[0].message.content.split("\n")[1] ||
+            "See changes in diagram",
+        };
+      }
+    } else {
+      throw new Error("Invalid completion response format");
+    }
+    updateVersionHistory();
+  } catch (error) {
+    console.error("Failed to get summary:", error);
+    version.summary = {
+      userIntent: lastUserQuery.slice(0, 50) + "...",
+      technicalChanges: "Compare diagrams manually",
+    };
+    updateVersionHistory();
+  }
+}
+
+window.restoreVersion = async (versionId) => {
+  const version = diagramVersions.find((v) => v.id === versionId);
+  if (version) {
+    document.getElementById("diagramDefinition").value = version.definition;
+    await updateDiagram(version.definition);
+    sendText(getCurrentDiagramText());
+  }
+};
+
 async function updateDiagram(definition) {
-	const element = document.getElementById("diagram");
-	const { svg } = await mermaid.render('graphDiv', definition);
-	element.innerHTML = svg;
+  const element = document.getElementById("diagram");
+  const { svg } = await mermaid.render("graphDiv", definition);
+  element.innerHTML = svg;
+  return svg;
+}
+
+// Export functions
+async function exportAsSVG() {
+  try {
+    const definition = document.getElementById("diagramDefinition").value;
+    const svg = await updateDiagram(definition);
+    const blob = new Blob([svg], { type: "image/svg+xml" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "diagram.svg";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    showError("Failed to export as SVG: " + error.message);
+  }
+}
+
+async function exportAsPNG() {
+  try {
+    const definition = document.getElementById("diagramDefinition").value;
+    const svg = await updateDiagram(definition);
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+
+    // Create a temporary img element to load the SVG
+    const img = new Image();
+    const svgBlob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(svgBlob);
+
+    img.onload = () => {
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
+
+      // Convert to PNG and download
+      const pngUrl = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.href = pngUrl;
+      link.download = "diagram.png";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    };
+
+    img.src = url;
+  } catch (error) {
+    showError("Failed to export as PNG: " + error.message);
+  }
+}
+
+// Copy to clipboard function
+async function copyToClipboard() {
+  try {
+    const definition = document.getElementById("diagramDefinition").value;
+    await navigator.clipboard.writeText(definition);
+  } catch (error) {
+    showError("Failed to copy to clipboard: " + error.message);
+  }
 }
 
 const defaultDiagram = [
-	"sequenceDiagram;",
-	"    participant A as Browser Client;",
-	"    participant B as System;",
-	"    participant C as DynamoDB;",
-	"    A->>B: Request;",
-	"    B->>C: Query;",
-	"    C-->>B: Result;",
-	"    B-->>A: Response;",
+  "sequenceDiagram;",
+  "    participant A as Browser Client;",
+  "    participant B as System;",
+  "    participant C as DynamoDB;",
+  "    A->>B: Request;",
+  "    B->>C: Query;",
+  "    C-->>B: Result;",
+  "    B-->>A: Response;",
 ].join("\n");
+
 const diagramDefinition = document.getElementById("diagramDefinition");
 diagramDefinition.value = defaultDiagram;
 updateDiagram(defaultDiagram);
 
+// Event Listeners
+document.getElementById("copyBtn").addEventListener("click", copyToClipboard);
+document.getElementById("downloadSvg").addEventListener("click", exportAsSVG);
+document.getElementById("downloadPng").addEventListener("click", exportAsPNG);
+
 const fns = {
-	async updateMermaidDefinition({ definition }) {
-		document.getElementById("diagramDefinition").value = definition;
-		try {
-			await updateDiagram(definition);
-			return { success: true, newDefinition: definition };
-		} catch (err) {
-			return { error: err.message };
-		}
-	},
+  async updateMermaidDefinition({ definition }) {
+    document.getElementById("diagramDefinition").value = definition;
+    try {
+      await updateDiagram(definition);
+      return { success: true, newDefinition: definition };
+    } catch (err) {
+      return { error: err.message };
+    }
+  },
 };
 
 const updateButton = document.getElementById("update");
 updateButton.addEventListener("click", async () => {
-	updateButton.disabled = true;
-	const definition = document.getElementById("diagramDefinition").value;
-	await updateDiagram(definition);
-	sendText(getCurrentDiagramText());
+  updateButton.disabled = true;
+  const definition = document.getElementById("diagramDefinition").value;
+  await updateDiagram(definition);
+  addDiagramVersion(definition);
+  sendText(getCurrentDiagramText());
 });
-diagramDefinition.addEventListener("input", async () => { updateButton.disabled = false; });
+
+diagramDefinition.addEventListener("input", async () => {
+  updateButton.disabled = false;
+});
 
 const contextButton = document.getElementById("updateContext");
 contextButton.addEventListener("click", async () => {
-	contextButton.disabled = true;
-	sendText(getContextText());
+  contextButton.disabled = true;
+  sendText(getContextText());
 });
+
 const contextInput = document.getElementById("contextInput");
-contextInput.addEventListener("input", async () => { contextButton.disabled = false; });
+contextInput.addEventListener("input", async () => {
+  contextButton.disabled = false;
+});
 
 const errorCloseButton = document.getElementById("errorClose");
 const errorMessage = document.getElementById("errorMessage");
 const errorContainer = document.getElementById("errorContainer");
 
 errorCloseButton.addEventListener("click", () => {
-	errorContainer.classList.remove("show");
+  errorContainer.classList.remove("show");
 });
 
 function showError(message) {
-	errorMessage.textContent = message;
-	errorContainer.classList.add("show");
+  errorMessage.textContent = message;
+  errorContainer.classList.add("show");
 }
 
 // Create a peer connection
 const peer = new RTCPeerConnection();
 
 peer.ontrack = (event) => {
-	const el = document.createElement('audio');
-	el.srcObject = event.streams[0];
-	el.autoplay = true;
-	document.body.appendChild(el);
+  const el = document.createElement("audio");
+  el.srcObject = event.streams[0];
+  el.autoplay = true;
+  document.body.appendChild(el);
 };
 
 // Add local audio track for microphone input in the browser
@@ -80,194 +343,250 @@ const audioTrack = ms.getTracks()[0];
 peer.addTrack(audioTrack);
 
 // Setup mute toggle functionality
-const toggleMuteButton = document.getElementById('toggleMute');
-toggleMuteButton.addEventListener('click', () => {
-	audioTrack.enabled = !audioTrack.enabled;
-	toggleMuteButton.textContent = audioTrack.enabled ? 'Mute Mic' : 'Unmute Mic';
-	toggleMuteButton.classList.toggle('muted', !audioTrack.enabled);
+const toggleMuteButton = document.getElementById("toggleMute");
+toggleMuteButton.addEventListener("click", () => {
+  audioTrack.enabled = !audioTrack.enabled;
+  toggleMuteButton.textContent = audioTrack.enabled ? "Mute Mic" : "Unmute Mic";
+  toggleMuteButton.classList.toggle("muted", !audioTrack.enabled);
 });
 
 // Setup disconnect functionality
-const disconnectButton = document.getElementById('disconnect');
-disconnectButton.addEventListener('click', () => {
-	// Close the peer connection
-	peer?.close();
+const disconnectButton = document.getElementById("disconnect");
+disconnectButton.addEventListener("click", () => {
+  // Close the peer connection
+  peer?.close();
 
-	// Stop all tracks
-	for (const track of ms?.getTracks() ?? []) {
-		track.stop();
-	}
+  // Stop all tracks
+  for (const track of ms?.getTracks() ?? []) {
+    track.stop();
+  }
 
-	// Reset UI state
-	const status = document.getElementById("status");
-	status.textContent = "Disconnected";
-	status.className = "status disconnected";
+  // Reset UI state
+  const status = document.getElementById("status");
+  status.textContent = "Disconnected";
+  status.className = "status disconnected";
 
-	// Disable buttons
-	toggleMuteButton.disabled = true;
-	disconnectButton.disabled = true;
-	updateButton.disabled = true;
-	contextButton.disabled = true;
+  // Disable buttons
+  toggleMuteButton.disabled = true;
+  disconnectButton.disabled = true;
+  updateButton.disabled = true;
+  contextButton.disabled = true;
 
-	// Remove any audio elements
-	document.querySelectorAll('audio').forEach(el => el.remove());
+  // Remove any audio elements
+  document.querySelectorAll("audio").forEach((el) => el.remove());
 });
 
 function getContextText() {
-	const context = document.getElementById("contextInput").value;
-	if (!context.trim()) return "";
-	return [
-		"Additional Context:",
-		context,
-		"Please do no reply to this message",
-	].join("\n");
+  const context = document.getElementById("contextInput").value;
+  if (!context.trim()) return "";
+  return [
+    "Additional Context:",
+    context,
+    "Please do no reply to this message",
+  ].join("\n");
 }
 
 function getCurrentDiagramText() {
-	const def = document.getElementById("diagramDefinition").value;
-	return [
-		"Here is the current diagram definition",
-		"```",
-		def,
-		"```",
-		"Please do not respond, but keep the current state in mind going forward",
-	].join("\n");
+  const def = document.getElementById("diagramDefinition").value;
+  return [
+    "Here is the current diagram definition",
+    "```",
+    def,
+    "```",
+    "Please do not respond, but keep the current state in mind going forward",
+  ].join("\n");
 }
 
 // Set up data channel for sending and receiving events
 const channel = peer.createDataChannel("response");
 
 function sendText(text) {
-	channel.send(JSON.stringify({
-		type: "conversation.item.create",
-		item: {
-			type: "message",
-			role: "user",
-			content: [
-				{
-					"type": "input_text",
-					"text": text,
-				}
-			]
-		},
-	}));
+  // Only capture actual user queries, not system messages
+  if (
+    !text.startsWith("Additional Context:") &&
+    !text.startsWith("Here is the current diagram")
+  ) {
+    lastUserQuery = text;
+  }
+
+  channel.send(
+    JSON.stringify({
+      type: "conversation.item.create",
+      item: {
+        type: "message",
+        role: "user",
+        content: [
+          {
+            type: "input_text",
+            text: text,
+          },
+        ],
+      },
+    })
+  );
 }
 
 // The "open" event will fire once the RTC connection is established.
 // Once that happens, we can send it instructions about the tools we have.
 channel.addEventListener("open", async () => {
-	channel.send(JSON.stringify({
-		type: "session.update",
-		session: {
-			modalities: ["text", "audio"],
-			instructions: [
-				"You are a helpful assistant.",
-				"You are an expert in writing mermaid diagrams.",
-				"When you speak, it is brief and to the point.",
-				"You only speak when asked a direct question.",
-				"You do not explain your actions unless asked.",
-				"Stay quiet unless explicitly asked to speak.",
-				"If you encounter an error with tool use, fix the problem described in the error and try again.",
-				"After several failed tool use attempts request help from the user.",
-			].join("\n"),
-			tools: [
-				{
-					type: "function",
-					name: "updateMermaidDefinition",
-					description: "Updates and re-renders the Mermaid diagram with a new definition",
-					parameters: {
-						type: "object",
-						properties: {
-							definition: {
-								type: "string",
-								description: "The mermaid definition text to set"
-							}
-						},
-						required: ["definition"]
-					}
-				},
-			]
-		}
-	}));
-	sendText([
-		getCurrentDiagramText(),
-		getContextText(),
-	].join("\n"))
+  // Update connection status
+  const status = document.getElementById("status");
+  status.textContent = "Connected to OpenAI";
+  status.className = "status connected";
+
+  channel.send(
+    JSON.stringify({
+      type: "session.update",
+      session: {
+        modalities: ["text", "audio"],
+        instructions: [
+          "You are a helpful assistant.",
+          "You are an expert in writing mermaid diagrams.",
+          "When you speak, it is brief and to the point.",
+          "You only speak when asked a direct question.",
+          "You do not explain your actions unless asked.",
+          "Stay quiet unless explicitly asked to speak.",
+          "If you encounter an error with tool use, fix the problem described in the error and try again.",
+          "After several failed tool use attempts request help from the user.",
+        ].join("\n"),
+        tools: [
+          {
+            type: "function",
+            name: "updateMermaidDefinition",
+            description:
+              "Updates and re-renders the Mermaid diagram with a new definition",
+            parameters: {
+              type: "object",
+              properties: {
+                definition: {
+                  type: "string",
+                  description: "The mermaid definition text to set",
+                },
+              },
+              required: ["definition"],
+            },
+          },
+        ],
+      },
+    })
+  );
+  sendText([getCurrentDiagramText(), getContextText()].join("\n"));
 });
 
 // This is how the LLM sends us information.
 // This callback recieves tool calls, text message, notifications, and errors.
 channel.addEventListener("message", async (ev) => {
-	const msg = JSON.parse(ev.data);
+  const msg = JSON.parse(ev.data);
 
-	// for debugging. There are way too many of these delta events
-	// so I'm filtering them out for now.
-	if (!msg.type.endsWith(".delta")) {
-		console.log(JSON.stringify(msg, null, 2));
-	}
-	// the voice communication is not available
-	// until we get this message. We use it to
-	// notify the user.
-	if (msg.type === "session.updated") {
-		const status = document.getElementById("status");
-		status.textContent = "Connected to OpenAI";
-		status.className = "status connected";
-	}
+  // for debugging. There are way too many of these delta events
+  // so I'm filtering them out for now.
+  if (!msg.type.endsWith(".delta")) {
+    console.log(JSON.stringify(msg, null, 2));
+  }
+  // the voice communication is not available
+  // until we get this message. We use it to
+  // notify the user.
+  if (msg.type === "session.updated") {
+    const status = document.getElementById("status");
+    status.textContent = "Connected to OpenAI";
+    status.className = "status connected";
+  }
 
-	// this is the LLM asking to run a function
-	if (msg.type === "response.function_call_arguments.done") {
-		const fn = fns[msg.name];
-		if (!fn) {
-			return;
-		}
-		const args = JSON.parse(msg.arguments);
-		const result = await fn(args);
-		channel.send(JSON.stringify({
-			type: "conversation.item.create",
-			item: {
-				type: "function_call_output",
-				call_id: msg.call_id,
-				output: JSON.stringify(result),
-			},
-		}));
-	}
+  // Capture assistant's responses
+  if (msg.type === "response.message.content.part") {
+    lastAssistantResponse += msg.content;
+  }
 
-	// show any errors
-	if (msg.type === "error") {
-		showError(JSON.stringify(msg, null, 2));
-	}
+  if (msg.type === "response.message.content.done") {
+    // Clear the response buffer after processing
+    lastAssistantResponse = "";
+  }
+
+  // Track version history for LLM-initiated changes
+  if (msg.type === "response.function_call_arguments.done") {
+    const fn = fns[msg.name];
+    if (!fn) return;
+
+    const args = JSON.parse(msg.arguments);
+    const result = await fn(args);
+
+    if (msg.name === "updateMermaidDefinition" && result.success) {
+      const prevVersion = diagramVersions[diagramVersions.length - 1];
+      addDiagramVersion(result.newDefinition, lastUserQuery);
+      if (prevVersion) {
+        requestChangeSummary(
+          prevVersion.definition,
+          result.newDefinition,
+          diagramVersions.length
+        );
+      }
+    }
+
+    channel.send(
+      JSON.stringify({
+        type: "conversation.item.create",
+        item: {
+          type: "function_call_output",
+          call_id: msg.call_id,
+          output: JSON.stringify(result),
+        },
+      })
+    );
+  }
+
+  // show any errors
+  if (msg.type === "error") {
+    showError(JSON.stringify(msg, null, 2));
+  }
 });
 
-
 async function connect() {
-	// Start the session using the Session Description Protocol (SDP)
-	const offer = await peer.createOffer();
-	await peer.setLocalDescription(offer);
+  // Start the session using the Session Description Protocol (SDP)
+  const offer = await peer.createOffer();
+  await peer.setLocalDescription(offer);
 
-	// get the token
-	const response = await fetch("/session");
-	if (!response.ok) {
-		throw new Error("failed to get /session from server");
-	}
-	const session = await response.json();
+  // get the token
+  const response = await fetch("/session");
+  if (!response.ok) {
+    throw new Error("failed to get /session from server");
+  }
+  const session = await response.json();
 
-	const sdpResponse = await fetch(`https://api.openai.com/v1/realtime?model=${session.model}`, {
-		method: "POST",
-		body: offer.sdp,
-		headers: {
-			Authorization: `Bearer ${session.client_secret.value}`,
-			"Content-Type": "application/sdp"
-		},
-	});
+  const sdpResponse = await fetch(
+    `https://api.openai.com/v1/realtime?model=${session.model}`,
+    {
+      method: "POST",
+      body: offer.sdp,
+      headers: {
+        Authorization: `Bearer ${session.client_secret.value}`,
+        "Content-Type": "application/sdp",
+      },
+    }
+  );
 
-	await peer.setRemoteDescription({
-		type: "answer",
-		sdp: await sdpResponse.text(),
-	});
+  await peer.setRemoteDescription({
+    type: "answer",
+    sdp: await sdpResponse.text(),
+  });
 }
 
 try {
-	await connect();
+  await connect();
 } catch (err) {
-	showError(err.message);
+  showError(err.message);
 }
+
+// Initialize with the default diagram version
+addDiagramVersion(defaultDiagram);
+
+// Add styles for the summary
+const style = document.createElement("style");
+style.textContent = `
+  .version-summary {
+    font-size: 0.75rem;
+    color: #64748b;
+    margin-top: 0.25rem;
+    font-style: italic;
+  }
+`;
+document.head.appendChild(style);

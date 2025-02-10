@@ -1,0 +1,22 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+cmd = "go build -o ./tmp/main ."
+bin = "./tmp/main"
+include_ext = ["go", "mjs", "html", "css"]
+exclude_dir = ["tmp", "vendor"]
+delay = 1000 # ms
+env_files = [".env"]
+
+[log]
+time = true
+
+[color]
+main = "yellow"
+watcher = "cyan"
+build = "green"
+runner = "magenta"
+
+[screen]
+clear_on_rebuild = true 
