@@ -1,218 +1,293 @@
 <!DOCTYPE html>
 <html lang="en">
-	<head>
-		<meta charset="UTF-8">
-		<meta name="viewport" content="width=device-width, initial-scale=1.0">
-		<title>JavaScript Playground</title>
-		<style>
-		body {
-			font-family: 'Segoe UI', Arial, sans-serif;
-			max-width: 1200px;
-			margin: 0 auto;
-			padding: 20px;
-			background-color: #f5f5f5;
-			color: #333;
-		}
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JavaScript Playground</title>
+    <style>
+      body {
+        font-family: "Segoe UI", Arial, sans-serif;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f5f5f5;
+        color: #333;
+      }
 
-		h1 {
-			color: #2c3e50;
-			border-bottom: 2px solid #3498db;
-			padding-bottom: 10px;
-		}
+      h1 {
+        color: #2c3e50;
+        border-bottom: 2px solid #3498db;
+        padding-bottom: 10px;
+      }
 
-		.container {
-			max-width: 800px;
-			margin: 0 auto;
-		}
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+      }
 
-		.status {
-			display: inline-block;
-			padding: 8px 16px;
-			border-radius: 4px;
-			font-size: 14px;
-			margin-bottom: 20px;
-		}
+      .status {
+        display: inline-block;
+        padding: 8px 16px;
+        border-radius: 4px;
+        font-size: 14px;
+        margin-bottom: 20px;
+      }
 
-		.status.connecting {
-			background-color: #ffeeba;
-			color: #856404;
-			border: 1px solid #ffeeba;
-		}
+      .status.connecting {
+        background-color: #ffeeba;
+        color: #856404;
+        border: 1px solid #ffeeba;
+      }
 
-		.status.connected {
-			background-color: #d4edda;
-			color: #155724;
-			border: 1px solid #c3e6cb;
-		}
+      .status.connected {
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+      }
 
-		.status.disconnected {
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
+      .status.disconnected {
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+      }
 
-		#errorContainer {
-			position: fixed;
-			top: -100px;
-			left: 0;
-			right: 0;
-			background-color: #f8d7da;
-			color: #721c24;
-			padding: 15px;
-			border: 1px solid #f5c6cb;
-			border-radius: 0 0 8px 8px;
-			margin: 0 auto;
-			max-width: 800px;
-			z-index: 1000;
-			transition: top 0.3s ease-in-out;
-			display: flex;
-			justify-content: space-between;
-			align-items: center;
-		}
+      #errorContainer {
+        position: fixed;
+        top: -100px;
+        left: 0;
+        right: 0;
+        background-color: #f8d7da;
+        color: #721c24;
+        padding: 15px;
+        border: 1px solid #f5c6cb;
+        border-radius: 0 0 8px 8px;
+        margin: 0 auto;
+        max-width: 800px;
+        z-index: 1000;
+        transition: top 0.3s ease-in-out;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
 
-		#errorContainer.show {
-			top: 0;
-		}
+      #errorContainer.show {
+        top: 0;
+      }
 
-		#errorClose {
-			background: none;
-			border: none;
-			color: #721c24;
-			font-size: 20px;
-			cursor: pointer;
-			padding: 0 5px;
-			margin: 0;
-		}
+      #errorClose {
+        background: none;
+        border: none;
+        color: #721c24;
+        font-size: 20px;
+        cursor: pointer;
+        padding: 0 5px;
+        margin: 0;
+      }
 
-		#errorClose:hover {
-			opacity: 0.7;
-		}
+      #errorClose:hover {
+        opacity: 0.7;
+      }
 
-		#diagram {
-			background-color: white;
-			padding: 20px;
-			border-radius: 8px;
-			box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-			margin: 20px 0;
-			width: 100%;
-			box-sizing: border-box;
-		}
+      #diagram {
+        background-color: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        margin: 20px 0;
+        width: 100%;
+        box-sizing: border-box;
+      }
 
-		#diagramDefinition, #contextInput {
-			width: 100%;
-			padding: 15px;
-			border: 1px solid #ddd;
-			border-radius: 8px;
-			font-family: monospace;
-			font-size: 14px;
-			resize: vertical;
-			background-color: white;
-			box-sizing: border-box;
-			margin: 20px 0;
-		}
+      #diagramDefinition,
+      #contextInput {
+        width: 100%;
+        padding: 15px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        font-family: monospace;
+        font-size: 14px;
+        resize: vertical;
+        background-color: white;
+        box-sizing: border-box;
+        margin: 20px 0;
+      }
 
-		.label {
-			font-weight: bold;
-			color: #2c3e50;
-			margin-bottom: 5px;
-			display: block;
-		}
+      .label {
+        font-weight: bold;
+        color: #2c3e50;
+        margin-bottom: 5px;
+        display: block;
+      }
 
-		button {
-			background-color: #3498db;
-			color: white;
-			border: none;
-			padding: 12px 24px;
-			border-radius: 6px;
-			cursor: pointer;
-			font-size: 16px;
-			transition: background-color 0.3s;
-			margin-bottom: 20px;
-		}
+      button {
+        background-color: #3498db;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 16px;
+        transition: background-color 0.3s;
+        margin-bottom: 20px;
+      }
 
-		button:hover {
-			background-color: #2980b9;
-		}
+      button:hover {
+        background-color: #2980b9;
+      }
 
-		#updateContext {
-			background-color: #2ecc71;
-		}
+      #updateContext {
+        background-color: #2ecc71;
+      }
 
-		#updateContext:disabled {
-			background-color: #bdc3c7;
-			cursor: not-allowed;
-		}
+      #updateContext:disabled {
+        background-color: #bdc3c7;
+        cursor: not-allowed;
+      }
 
-		#updateContext:disabled:hover {
-			background-color: #bdc3c7;
-		}
+      #updateContext:disabled:hover {
+        background-color: #bdc3c7;
+      }
 
-		#toggleMute {
-			background-color: #e74c3c;
-			margin-left: 10px;
-		}
+      #toggleMute {
+        background-color: #e74c3c;
+        margin-left: 10px;
+      }
 
-		#toggleMute:hover {
-			background-color: #c0392b;
-		}
+      #toggleMute:hover {
+        background-color: #c0392b;
+      }
 
-		#toggleMute.muted {
-			background-color: #95a5a6;
-		}
+      #toggleMute.muted {
+        background-color: #95a5a6;
+      }
 
-		#toggleMute.muted:hover {
-			background-color: #7f8c8d;
-		}
+      #toggleMute.muted:hover {
+        background-color: #7f8c8d;
+      }
 
-		#disconnect {
-			background-color: #e74c3c;
-			margin-left: 10px;
-		}
+      #disconnect {
+        background-color: #e74c3c;
+        margin-left: 10px;
+      }
 
-		#disconnect:hover {
-			background-color: #c0392b;
-		}
+      #disconnect:hover {
+        background-color: #c0392b;
+      }
 
-		p {
-			line-height: 1.6;
-			color: #666;
-		}
+      p {
+        line-height: 1.6;
+        color: #666;
+      }
 
-		button:hover {
-			background-color: #2980b9;
-		}
+      button:hover {
+        background-color: #2980b9;
+      }
 
-		button:disabled {
-			background-color: #bdc3c7;
-			cursor: not-allowed;
-		}
+      button:disabled {
+        background-color: #bdc3c7;
+        cursor: not-allowed;
+      }
 
-		button:disabled:hover {
-			background-color: #bdc3c7;
-		}
-		</style>
-	</head>
-	<body>
-		<div id="errorContainer">
-			<span id="errorMessage"></span>
-			<button id="errorClose">&times;</button>
-		</div>
-		<div class="container">
-			<h1>OpenAI Realtime API: Mermaid Editor</h1>
-			<div id="status" class="status connecting">Connecting to OpenAI...</div>
-			<button id="toggleMute">Mute Mic</button>
-			<button id="disconnect">Disconnect</button>
-			<pre id="diagram" class="mermaid"></pre>
+      button:disabled:hover {
+        background-color: #bdc3c7;
+      }
 
-			<label class="label" for="diagramDefinition">Diagram Definition:</label>
-			<textarea id="diagramDefinition" rows="10" cols="50"></textarea>
-			<button id="update">Update Diagram</button>
+      /* Add version history styles */
+      #versionPanel {
+        position: fixed;
+        right: 20px;
+        top: 20px;
+        width: 300px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        max-height: 80vh;
+        overflow-y: auto;
+      }
 
-			<label class="label" for="contextInput">Context / Instructions:</label>
-			<textarea id="contextInput" rows="3" placeholder="Add any context or specific instructions here..."></textarea>
-			<button id="updateContext">Update Context</button>
-		</div>
-		<script type="module" src="main.mjs"></script>
-	</body>
+      #versionPanel h3 {
+        margin: 0;
+        padding: 15px;
+        background: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+        border-radius: 8px 8px 0 0;
+      }
+
+      #versionHistory {
+        padding: 10px;
+      }
+
+      .version-item {
+        padding: 10px;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        cursor: pointer;
+      }
+
+      .version-item:hover {
+        background: #f8f9fa;
+      }
+
+      .version-number {
+        font-weight: bold;
+        color: #6c757d;
+        min-width: 30px;
+      }
+
+      .version-identifier {
+        flex: 1;
+        font-size: 0.9em;
+        color: #495057;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .version-time {
+        font-size: 0.8em;
+        color: #6c757d;
+      }
+
+      .version-item button {
+        padding: 4px 8px;
+        font-size: 0.8em;
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="errorContainer">
+      <span id="errorMessage"></span>
+      <button id="errorClose">&times;</button>
+    </div>
+    <div class="container">
+      <h1>OpenAI Realtime API: Mermaid Editor</h1>
+      <div id="status" class="status connecting">Connecting to OpenAI...</div>
+      <button id="toggleMute">Mute Mic</button>
+      <button id="disconnect">Disconnect</button>
+      <pre id="diagram" class="mermaid"></pre>
+
+      <label class="label" for="diagramDefinition">Diagram Definition:</label>
+      <textarea id="diagramDefinition" rows="10" cols="50"></textarea>
+      <button id="update">Update Diagram</button>
+
+      <label class="label" for="contextInput">Context / Instructions:</label>
+      <textarea
+        id="contextInput"
+        rows="3"
+        placeholder="Add any context or specific instructions here..."
+      ></textarea>
+      <button id="updateContext">Update Context</button>
+    </div>
+
+    <!-- Add version history panel -->
+    <div id="versionPanel">
+      <h3>Version History</h3>
+      <div id="versionHistory"></div>
+    </div>
+
+    <script type="module" src="main.mjs"></script>
+  </body>
 </html>
-

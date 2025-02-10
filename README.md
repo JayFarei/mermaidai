@@ -1,50 +1,72 @@
-# Mermaid AI
+# MermaidAI - Mermaid Diagram Editor with AI
 
-> Use OpenAI advanced voice to create [mermaid](https://mermaid.live) diagrams.
+An interactive Mermaid diagram editor powered by OpenAI's real-time API. Create and modify diagrams through natural language using voice or text input.
 
-## Install
+## Features
+
+- Real-time diagram updates using OpenAI's API
+- Voice and text input support
+- Version history tracking for diagrams
+- Live preview of Mermaid diagrams
+- Hot-reloading in development mode
+
+## Prerequisites
+
+- Go 1.20 or later
+- OpenAI API key
+- Modern web browser with WebRTC support
+
+## Quick Start
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/mermaidai.git
+   cd mermaidai
+   ```
+
+2. Set up the project:
+   ```bash
+   make setup
+   ```
+
+3. Add your OpenAI API key to `.env`:
+   ```
+   OPENAI_API_KEY=your_api_key_here
+   ```
+
+4. Run the application:
+   ```bash
+   make run
+   ```
+
+   For development with hot-reload:
+   ```bash
+   make dev
+   ```
+
+5. Open your browser and navigate to `http://localhost:8080`
+
+## Development
+
+The project includes several make commands to help with development:
+
+- `make help` - Display available commands
+- `make setup` - Install dependencies and setup environment
+- `make build` - Build the Go application
+- `make run` - Run the application
+- `make dev` - Run in development mode with hot reload
+- `make clean` - Clean up build artifacts
+- `make test` - Run tests
+
+## Project Structure
 
 ```
-go install github.com/icholy/mermaidai@master
-```
-
-## Usage
-
-Start the server, and open the UI in your browser: http://localhost:8000
-
-```
-mermaidai
-```
-
-Notes:
-
-* If you don't have an `OPENAI_API_KEY` environment variable, you can pass it using the `--apikey` flag.
-* You must click the "Update" buttons after manually editing any text.
-* Don't read the FE code.
-
-## Screenshot
-
-![](./images/screenshot.png)
-
-## Diagram
-
-``` mermaid
-sequenceDiagram;
-    participant Mermaid as Mermaid Diagram;
-    participant Browser as Browser Client;
-    participant Server as Server;
-    participant OpenAI as OpenAI Real-time API;
-    Browser->>Server: Request Session;
-    Server->>OpenAI: Request Temporary Token;
-    OpenAI-->>Server: Provide Temporary Token;
-    Server-->>Browser: Provide Session (Token);
-    Browser->>OpenAI: Request with Token;
-    OpenAI-->>Browser: Return SDP;
-    Browser->>OpenAI: Establish RTC Connection;
-    loop RTC Communication
-        Browser->>OpenAI: Send Mermaid Diagram State;
-        Browser->>OpenAI: Send Voice Information;
-        OpenAI-->>Browser: Tool Call (updateMermaidDefinition);
-        Browser->>Mermaid: Update Diagram with Parameters;
-    end
+.
+├── main.go              # Main Go server file
+├── internal/            # Internal Go packages
+├── static/             # Static web files
+│   ├── index.html      # Main HTML file
+│   └── main.mjs        # Main JavaScript module
+├── Makefile            # Build and run commands
+└── .env                # Environment configuration
 ```
