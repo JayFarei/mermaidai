@@ -63,7 +63,7 @@ dev: ## Run in development mode with hot reload
 		air; \
 	else \
 		echo "Installing air for hot reload..."; \
-		$(GO) install github.com/cosmtrek/air@latest; \
+		$(GO) install github.com/air-verse/air@latest; \
 		air; \
 	fi
 

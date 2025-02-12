@@ -73,6 +73,34 @@
         flex-direction: column;
       }
 
+      .sidebar-header {
+        padding: 1rem;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+      }
+
+      .sidebar-header .logo {
+        width: 32px;
+        height: 32px;
+      }
+
+      .sidebar-header .app-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--text-color);
+        margin: 0;
+      }
+
+      .sidebar-controls {
+        padding: 1rem;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        gap: 0.5rem;
+        justify-content: center;
+      }
+
       .sidebar-section {
         padding: 1rem;
         border-bottom: 1px solid var(--border-color);
@@ -93,9 +121,6 @@
         display: flex;
         flex-direction: column;
         gap: 1rem;
-        max-width: 1200px;
-        margin: 0 auto;
-        width: 100%;
       }
 
       /* Diagram Area */
@@ -142,7 +167,7 @@
       button {
         padding: 0.5rem 1rem;
         border: none;
-        border-radius: 0.375rem;
+        border-radius: 0.1875rem;
         font-size: 0.875rem;
         font-weight: 500;
         cursor: pointer;
@@ -300,55 +325,52 @@
       <button class="btn-secondary" id="errorClose">&times;</button>
     </div>
 
-    <!-- Top Bar -->
-    <div class="top-bar">
-      <svg
-        class="logo"
-        viewBox="0 0 24 24"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <path
-          d="M12 3C7.58172 3 4 6.58172 4 11C4 13.9608 5.60879 16.5405 8 17.9297V19C8 20.1046 8.89543 21 10 21H14C15.1046 21 16 20.1046 16 19V17.9297C18.3912 16.5405 20 13.9608 20 11C20 6.58172 16.4183 3 12 3Z"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        />
-        <path
-          d="M12 7C10.3431 7 9 8.34315 9 10C9 11.6569 10.3431 13 12 13C13.6569 13 15 11.6569 15 10C15 8.34315 13.6569 7 12 7Z"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        />
-        <path
-          d="M12 13V15"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        />
-        <path
-          d="M9 17L12 15L15 17"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        />
-      </svg>
-      <h1 class="app-title">Talk with your diagrams</h1>
-      <div class="top-bar-right">
-        <div class="status connecting" id="status">Connecting to OpenAI...</div>
-        <button class="btn-danger" id="toggleMute">Mute Mic</button>
-        <button class="btn-danger" id="disconnect">Disconnect</button>
-      </div>
-    </div>
-
     <!-- Main Layout -->
     <div class="main-container">
       <!-- Left Sidebar -->
       <div class="sidebar">
+        <div class="sidebar-header">
+          <svg
+            class="logo"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M12 3C7.58172 3 4 6.58172 4 11C4 13.9608 5.60879 16.5405 8 17.9297V19C8 20.1046 8.89543 21 10 21H14C15.1046 21 16 20.1046 16 19V17.9297C18.3912 16.5405 20 13.9608 20 11C20 6.58172 16.4183 3 12 3Z"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            <path
+              d="M12 7C10.3431 7 9 8.34315 9 10C9 11.6569 10.3431 13 12 13C13.6569 13 15 11.6569 15 10C15 8.34315 13.6569 7 12 7Z"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            <path
+              d="M12 13V15"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            <path
+              d="M9 17L12 15L15 17"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          <h1 class="app-title">Talk with your diagrams</h1>
+        </div>
+        <div class="sidebar-controls">
+          <button id="toggleMute" class="control-button"></button>
+          <button id="disconnect" class="control-button"></button>
+        </div>
         <div class="sidebar-section">
           <h2>System Context</h2>
           <textarea

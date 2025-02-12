@@ -327,54 +327,367 @@ function showError(message) {
   errorContainer.classList.add("show");
 }
 
-// Create a peer connection
-const peer = new RTCPeerConnection();
+// Create initial peer connection and global variables
+let peer = null;
+let channel = null;
+let audioTrack = null;
+let mediaStream = null;
 
-peer.ontrack = (event) => {
-  const el = document.createElement("audio");
-  el.srcObject = event.streams[0];
-  el.autoplay = true;
-  document.body.appendChild(el);
-};
+async function setupConnection() {
+  // Create a new peer connection
+  peer = new RTCPeerConnection();
 
-// Add local audio track for microphone input in the browser
-const ms = await navigator.mediaDevices.getUserMedia({ audio: true });
-const audioTrack = ms.getTracks()[0];
-peer.addTrack(audioTrack);
+  peer.ontrack = (event) => {
+    const el = document.createElement("audio");
+    el.srcObject = event.streams[0];
+    el.autoplay = true;
+    document.body.appendChild(el);
+  };
+
+  try {
+    // Get new audio track
+    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioTrack = mediaStream.getTracks()[0];
+    peer.addTrack(audioTrack);
+
+    // Set up new data channel
+    channel = peer.createDataChannel("response");
+    setupChannelListeners();
+  } catch (err) {
+    showError("Failed to access microphone: " + err.message);
+    return false;
+  }
+
+  return true;
+}
+
+function setupChannelListeners() {
+  // The "open" event will fire once the RTC connection is established.
+  channel.addEventListener("open", async () => {
+    updateConnectionStatus("connected");
+    channel.send(
+      JSON.stringify({
+        type: "session.update",
+        session: {
+          modalities: ["text", "audio"],
+          instructions: [
+            "You are a helpful assistant.",
+            "You are an expert in writing mermaid diagrams.",
+            "When you speak, it is brief and to the point.",
+            "You only speak when asked a direct question.",
+            "You do not explain your actions unless asked.",
+            "Stay quiet unless explicitly asked to speak.",
+            "If you encounter an error with tool use, fix the problem described in the error and try again.",
+            "After several failed tool use attempts request help from the user.",
+          ].join("\n"),
+          tools: [
+            {
+              type: "function",
+              name: "updateMermaidDefinition",
+              description:
+                "Updates and re-renders the Mermaid diagram with a new definition",
+              parameters: {
+                type: "object",
+                properties: {
+                  definition: {
+                    type: "string",
+                    description: "The mermaid definition text to set",
+                  },
+                },
+                required: ["definition"],
+              },
+            },
+          ],
+        },
+      })
+    );
+    sendText([getCurrentDiagramText(), getContextText()].join("\n"));
+  });
+}
+
+async function connect() {
+  if (!(await setupConnection())) {
+    throw new Error("Failed to setup connection");
+  }
+
+  // Start the session using the Session Description Protocol (SDP)
+  const offer = await peer.createOffer();
+  await peer.setLocalDescription(offer);
+
+  // get the token
+  const response = await fetch("/session");
+  if (!response.ok) {
+    throw new Error("failed to get /session from server");
+  }
+  const session = await response.json();
+
+  const sdpResponse = await fetch(
+    `https://api.openai.com/v1/realtime?model=${session.model}`,
+    {
+      method: "POST",
+      body: offer.sdp,
+      headers: {
+        Authorization: `Bearer ${session.client_secret.value}`,
+        "Content-Type": "application/sdp",
+      },
+    }
+  );
+
+  await peer.setRemoteDescription({
+    type: "answer",
+    sdp: await sdpResponse.text(),
+  });
+}
+
+// Initialize connection
+try {
+  await connect();
+} catch (err) {
+  showError(err.message);
+}
+
+// Initialize with the default diagram version
+addDiagramVersion(defaultDiagram);
+
+// Add styles for the summary and microphone button
+const style = document.createElement("style");
+style.textContent = `
+  .version-summary {
+    font-size: 0.75rem;
+    color: #64748b;
+    margin-top: 0.25rem;
+    font-style: italic;
+  }
+
+  .control-button {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 2px solid #e2e8f0;
+    background: #ffffff;
+    color: #1a1a1a;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    margin: 0 4px;
+  }
+
+  .control-button svg {
+    width: 32px;
+    height: 32px;
+    transition: transform 0.2s ease;
+    fill: currentColor;
+  }
+
+  .control-button:hover {
+    border-color: currentColor;
+  }
+
+  .control-button:hover svg {
+    transform: scale(1.1);
+  }
+
+  .control-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    border-color: #e2e8f0;
+  }
+
+  .control-button:disabled:hover svg {
+    transform: none;
+  }
+
+  /* Mic button specific styles */
+  .mic-button.muted {
+    background: #fee2e2;
+    color: #dc2626;
+    border-color: #dc2626;
+  }
+
+  .mic-button.muted:hover {
+    background: #fecaca;
+  }
+
+  .mic-button:not(.muted) svg {
+    color: #2563eb;
+  }
+
+  /* Connection button states */
+  @keyframes pulse {
+    0% {
+      box-shadow: 0 0 0 0 rgba(var(--pulse-color), 0.2);
+      border-color: rgba(var(--pulse-color), 0.4);
+    }
+    70% {
+      box-shadow: 0 0 0 10px rgba(var(--pulse-color), 0);
+      border-color: rgba(var(--pulse-color), 0.8);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgba(var(--pulse-color), 0);
+      border-color: rgba(var(--pulse-color), 0.4);
+    }
+  }
+
+  .disconnect-button {
+    --pulse-color: 34, 197, 94; /* Green for connected */
+    color: rgb(var(--pulse-color));
+    border-color: rgb(var(--pulse-color));
+    animation: pulse 2s infinite;
+  }
+
+  .disconnect-button:hover {
+    background: rgba(var(--pulse-color), 0.1);
+  }
+
+  .disconnect-button.connecting {
+    --pulse-color: 234, 179, 8; /* Yellow for connecting */
+    color: rgb(var(--pulse-color));
+    border-color: rgb(var(--pulse-color));
+  }
+
+  .disconnect-button.disconnected {
+    --pulse-color: 220, 38, 38; /* Red for disconnected */
+    color: rgb(var(--pulse-color));
+    border-color: rgb(var(--pulse-color));
+    animation: none;
+  }
+
+  .disconnect-button.disconnected:hover {
+    background: rgba(var(--pulse-color), 0.1);
+  }
+`;
+document.head.appendChild(style);
 
 // Setup mute toggle functionality
 const toggleMuteButton = document.getElementById("toggleMute");
+toggleMuteButton.className = "control-button mic-button";
+
+// Create both mic icons (active and muted)
+const micActiveIcon = `
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/>
+  </svg>
+`;
+
+const micMutedIcon = `
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M19 11h-1.7c0 .74-.16 1.43-.43 2.05l1.23 1.23c.56-.98.9-2.09.9-3.28zm-4.02.17c0-.06.02-.11.02-.17V5c0-1.66-1.34-3-3-3S9 3.34 9 5v.18l5.98 5.99zM4.27 3L3 4.27l6.01 6.01V11c0 1.66 1.33 3 2.99 3 .22 0 .44-.03.65-.08l1.66 1.66c-.71.33-1.5.52-2.31.52-2.76 0-5.3-2.1-5.3-5.1H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c.91-.13 1.77-.45 2.54-.9l4.19 4.18 1.27-1.27L4.27 3z"/>
+  </svg>
+`;
+
+toggleMuteButton.innerHTML = micActiveIcon;
+toggleMuteButton.title = "Click to mute/unmute microphone";
 toggleMuteButton.addEventListener("click", () => {
-  audioTrack.enabled = !audioTrack.enabled;
-  toggleMuteButton.textContent = audioTrack.enabled ? "Mute Mic" : "Unmute Mic";
-  toggleMuteButton.classList.toggle("muted", !audioTrack.enabled);
-});
-
-// Setup disconnect functionality
-const disconnectButton = document.getElementById("disconnect");
-disconnectButton.addEventListener("click", () => {
-  // Close the peer connection
-  peer?.close();
-
-  // Stop all tracks
-  for (const track of ms?.getTracks() ?? []) {
-    track.stop();
+  if (audioTrack) {
+    audioTrack.enabled = !audioTrack.enabled;
+    toggleMuteButton.title = audioTrack.enabled
+      ? "Click to mute microphone"
+      : "Click to unmute microphone";
+    toggleMuteButton.classList.toggle("muted", !audioTrack.enabled);
+    toggleMuteButton.innerHTML = audioTrack.enabled
+      ? micActiveIcon
+      : micMutedIcon;
   }
-
-  // Reset UI state
-  const status = document.getElementById("status");
-  status.textContent = "Disconnected";
-  status.className = "status disconnected";
-
-  // Disable buttons
-  toggleMuteButton.disabled = true;
-  disconnectButton.disabled = true;
-  updateButton.disabled = true;
-  contextButton.disabled = true;
-
-  // Remove any audio elements
-  document.querySelectorAll("audio").forEach((el) => el.remove());
 });
+
+// Setup disconnect button
+const disconnectButton = document.getElementById("disconnect");
+disconnectButton.className = "control-button disconnect-button";
+
+// Create power icons for different states
+const powerOnIcon = `
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9-4.03-9-9-9zm0 16c-3.86 0-7-3.14-7-7s3.14-7 7-7 7 3.14 7 7-3.14 7-7 7zm-3-9h6v2H9z"/>
+  </svg>
+`;
+
+const powerOffIcon = `
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9-4.03-9-9-9zm0 16c-3.86 0-7-3.14-7-7s3.14-7 7-7 7 3.14 7 7-3.14 7-7 7zm-1-11h2v6h-2z"/>
+  </svg>
+`;
+
+const connectingIcon = `
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9-4.03-9-9-9zm0 16c-3.86 0-7-3.14-7-7s3.14-7 7-7 7 3.14 7 7-3.14 7-7 7zm-.5-4.5v-7l4 3.5-4 3.5z"/>
+  </svg>
+`;
+
+disconnectButton.innerHTML = powerOnIcon;
+disconnectButton.title = "Connected to OpenAI";
+
+// Update connection status display
+function updateConnectionStatus(status) {
+  disconnectButton.classList.remove("connecting", "disconnected");
+  switch (status) {
+    case "connecting":
+      disconnectButton.classList.add("connecting");
+      disconnectButton.title = "Connecting to OpenAI...";
+      disconnectButton.innerHTML = connectingIcon;
+      break;
+    case "connected":
+      disconnectButton.title = "Connected to OpenAI - Click to disconnect";
+      disconnectButton.innerHTML = powerOnIcon;
+      break;
+    case "disconnected":
+      disconnectButton.classList.add("disconnected");
+      disconnectButton.title = "Disconnected - Click to reconnect";
+      disconnectButton.innerHTML = powerOffIcon;
+      break;
+  }
+}
+
+disconnectButton.addEventListener("click", () => {
+  const isDisconnected = disconnectButton.classList.contains("disconnected");
+
+  if (!isDisconnected) {
+    // Close the peer connection
+    peer?.close();
+
+    // Stop all tracks
+    if (mediaStream) {
+      mediaStream.getTracks().forEach((track) => track.stop());
+    }
+
+    // Update UI state
+    updateConnectionStatus("disconnected");
+
+    // Update button states
+    toggleMuteButton.disabled = true;
+    updateButton.disabled = true;
+    contextButton.disabled = true;
+
+    // Remove any audio elements
+    document.querySelectorAll("audio").forEach((el) => el.remove());
+  } else {
+    // Show connecting state
+    updateConnectionStatus("connecting");
+
+    // Attempt to reconnect
+    connect()
+      .then(() => {
+        // Re-enable buttons on successful connection
+        toggleMuteButton.disabled = false;
+        updateButton.disabled = false;
+        contextButton.disabled = false;
+
+        // Update connection status
+        updateConnectionStatus("connected");
+      })
+      .catch((err) => {
+        showError(err.message);
+        // Keep disconnected state on error
+        updateConnectionStatus("disconnected");
+      });
+  }
+});
+
+// Initialize with connecting state
+updateConnectionStatus("connecting");
 
 function getContextText() {
   const context = document.getElementById("contextInput").value;
@@ -398,8 +711,6 @@ function getCurrentDiagramText() {
 }
 
 // Set up data channel for sending and receiving events
-const channel = peer.createDataChannel("response");
-
 function sendText(text) {
   // Only capture actual user queries, not system messages
   if (
@@ -409,7 +720,7 @@ function sendText(text) {
     lastUserQuery = text;
   }
 
-  channel.send(
+  channel?.send(
     JSON.stringify({
       type: "conversation.item.create",
       item: {
@@ -426,53 +737,6 @@ function sendText(text) {
   );
 }
 
-// The "open" event will fire once the RTC connection is established.
-// Once that happens, we can send it instructions about the tools we have.
-channel.addEventListener("open", async () => {
-  // Update connection status
-  const status = document.getElementById("status");
-  status.textContent = "Connected to OpenAI";
-  status.className = "status connected";
-
-  channel.send(
-    JSON.stringify({
-      type: "session.update",
-      session: {
-        modalities: ["text", "audio"],
-        instructions: [
-          "You are a helpful assistant.",
-          "You are an expert in writing mermaid diagrams.",
-          "When you speak, it is brief and to the point.",
-          "You only speak when asked a direct question.",
-          "You do not explain your actions unless asked.",
-          "Stay quiet unless explicitly asked to speak.",
-          "If you encounter an error with tool use, fix the problem described in the error and try again.",
-          "After several failed tool use attempts request help from the user.",
-        ].join("\n"),
-        tools: [
-          {
-            type: "function",
-            name: "updateMermaidDefinition",
-            description:
-              "Updates and re-renders the Mermaid diagram with a new definition",
-            parameters: {
-              type: "object",
-              properties: {
-                definition: {
-                  type: "string",
-                  description: "The mermaid definition text to set",
-                },
-              },
-              required: ["definition"],
-            },
-          },
-        ],
-      },
-    })
-  );
-  sendText([getCurrentDiagramText(), getContextText()].join("\n"));
-});
-
 // This is how the LLM sends us information.
 // This callback recieves tool calls, text message, notifications, and errors.
 channel.addEventListener("message", async (ev) => {
@@ -483,13 +747,10 @@ channel.addEventListener("message", async (ev) => {
   if (!msg.type.endsWith(".delta")) {
     console.log(JSON.stringify(msg, null, 2));
   }
-  // the voice communication is not available
-  // until we get this message. We use it to
-  // notify the user.
+
+  // Update connection status when session is updated
   if (msg.type === "session.updated") {
-    const status = document.getElementById("status");
-    status.textContent = "Connected to OpenAI";
-    status.className = "status connected";
+    updateConnectionStatus("connected");
   }
 
   // Capture assistant's responses
@@ -539,54 +800,3 @@ channel.addEventListener("message", async (ev) => {
     showError(JSON.stringify(msg, null, 2));
   }
 });
-
-async function connect() {
-  // Start the session using the Session Description Protocol (SDP)
-  const offer = await peer.createOffer();
-  await peer.setLocalDescription(offer);
-
-  // get the token
-  const response = await fetch("/session");
-  if (!response.ok) {
-    throw new Error("failed to get /session from server");
-  }
-  const session = await response.json();
-
-  const sdpResponse = await fetch(
-    `https://api.openai.com/v1/realtime?model=${session.model}`,
-    {
-      method: "POST",
-      body: offer.sdp,
-      headers: {
-        Authorization: `Bearer ${session.client_secret.value}`,
-        "Content-Type": "application/sdp",
-      },
-    }
-  );
-
-  await peer.setRemoteDescription({
-    type: "answer",
-    sdp: await sdpResponse.text(),
-  });
-}
-
-try {
-  await connect();
-} catch (err) {
-  showError(err.message);
-}
-
-// Initialize with the default diagram version
-addDiagramVersion(defaultDiagram);
-
-// Add styles for the summary
-const style = document.createElement("style");
-style.textContent = `
-  .version-summary {
-    font-size: 0.75rem;
-    color: #64748b;
-    margin-top: 0.25rem;
-    font-style: italic;
-  }
-`;
-document.head.appendChild(style);
