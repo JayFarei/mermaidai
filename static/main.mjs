@@ -383,6 +383,9 @@ let peer = null;
 let channel = null;
 let audioTrack = null;
 let mediaStream = null;
+let audioContext = null;
+let analyser = null;
+let animationFrameId = null;
 
 async function setupConnection() {
   // Create a new peer connection
@@ -401,6 +404,16 @@ async function setupConnection() {
     audioTrack = mediaStream.getTracks()[0];
     peer.addTrack(audioTrack);
 
+    // Set up audio analysis
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const source = audioContext.createMediaStreamSource(mediaStream);
+    analyser = audioContext.createAnalyser();
+    analyser.fftSize = 256;
+    source.connect(analyser);
+
+    // Start audio visualization
+    visualizeAudio();
+
     // Set up new data channel
     channel = peer.createDataChannel("response");
     setupChannelListeners();
@@ -410,6 +423,25 @@ async function setupConnection() {
   }
 
   return true;
+}
+
+function visualizeAudio() {
+  const dataArray = new Uint8Array(analyser.frequencyBinCount);
+  const micButton = document.getElementById("toggleMute");
+
+  function draw() {
+    animationFrameId = requestAnimationFrame(draw);
+    analyser.getByteFrequencyData(dataArray);
+
+    // Calculate average volume level (0-100)
+    const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
+    const volume = Math.min(100, average * 2); // Scale up for better visibility
+
+    // Update the microphone button's pulse animation
+    micButton.style.setProperty("--pulse-scale", 1 + volume / 200);
+  }
+
+  draw();
 }
 
 function setupChannelListeners() {
@@ -565,10 +597,34 @@ style.textContent = `
   }
 
   /* Mic button specific styles */
+  .mic-button {
+    --pulse-scale: 1;
+    position: relative;
+  }
+
+  .mic-button::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: var(--primary-color);
+    opacity: 0.2;
+    transform: translate(-50%, -50%) scale(var(--pulse-scale, 1));
+    transition: transform 0.1s ease-out;
+    pointer-events: none;
+  }
+
   .mic-button.muted {
     background: var(--danger-color);
     color: var(--button-text);
     border-color: var(--danger-color);
+  }
+
+  .mic-button.muted::after {
+    display: none;
   }
 
   .mic-button.muted:hover {
@@ -706,10 +762,23 @@ function updateConnectionStatus(status) {
   }
 }
 
+// Update the cleanup when disconnecting
 disconnectButton.addEventListener("click", () => {
   const isDisconnected = disconnectButton.classList.contains("disconnected");
 
   if (!isDisconnected) {
+    // Cancel the animation frame
+    if (animationFrameId) {
+      cancelAnimationFrame(animationFrameId);
+      animationFrameId = null;
+    }
+
+    // Close the audio context
+    if (audioContext) {
+      audioContext.close();
+      audioContext = null;
+    }
+
     // Close the peer connection
     peer?.close();
 
