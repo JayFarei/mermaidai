@@ -119,36 +119,46 @@ function getInitialDiagramType(definition) {
   }
 }
 
-function updateVersionHistory() {
-  const historyElement = document.getElementById("versionHistory");
-  historyElement.innerHTML = diagramVersions
-    .map(
-      (version) => `
-        <div class="version-item">
-          <div class="version-meta">
-            <div>
-              <span>#${version.id}</span>
-              <span>${new Date(version.timestamp).toLocaleTimeString()}</span>
-            </div>
-            <button 
-              class="version-restore" 
-              onclick="window.restoreVersion(${version.id})"
-            >
-              Restore
-            </button>
-          </div>
-          <div class="version-content">
-            ${
-              version.summary
-                ? `<div class="version-query">${version.summary.userIntent}</div>
-                   <div class="version-summary">${version.summary.technicalChanges}</div>`
-                : `<div class="version-query">Analyzing changes...</div>`
-            }
-          </div>
-        </div>
-      `
-    )
-    .join("");
+function sanitizeContent(content) {
+  // Remove any JSON-like formatting characters
+  return content
+    .replace(/[{}"]/g, "")
+    .replace(/^\s*userIntent:\s*/, "")
+    .replace(/^\s*technicalChanges:\s*/, "")
+    .replace(/^\s*[-:]\s*/, "")
+    .trim();
+}
+
+function extractSummaryFromText(content) {
+  // Split by common delimiters and clean up
+  const lines = content
+    .split(/[\n,]/)
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith("{") && !line.startsWith("}"));
+
+  // Try to identify intent and changes from the lines
+  let userIntent = "";
+  let technicalChanges = "";
+
+  for (const line of lines) {
+    if (line.toLowerCase().includes("intent") || line.includes("user")) {
+      userIntent = sanitizeContent(line);
+    } else if (
+      line.toLowerCase().includes("changes") ||
+      line.toLowerCase().includes("technical")
+    ) {
+      technicalChanges = sanitizeContent(line);
+    } else if (!userIntent) {
+      userIntent = sanitizeContent(line);
+    } else if (!technicalChanges) {
+      technicalChanges = sanitizeContent(line);
+    }
+  }
+
+  return {
+    userIntent: userIntent || "Update diagram",
+    technicalChanges: technicalChanges || "View changes",
+  };
 }
 
 async function requestChangeSummary(oldDefinition, newDefinition, versionId) {
@@ -171,7 +181,7 @@ async function requestChangeSummary(oldDefinition, newDefinition, versionId) {
       {
         role: "system",
         content:
-          "You are a diagram change analyzer. Provide brief, focused summaries of changes to sequence diagrams.",
+          "You are a diagram change analyzer. Provide brief, focused summaries of changes to sequence diagrams. Always respond in valid JSON format.",
       },
       {
         role: "user",
@@ -202,42 +212,101 @@ Respond in JSON format:
     });
 
     if (!response.ok) {
-      throw new Error("Failed to get summary");
+      throw new Error(`Failed to get summary: ${response.statusText}`);
     }
 
     const completion = await response.json();
-    // Extract the actual content from the completion response
-    if (
-      completion.choices &&
-      completion.choices[0] &&
-      completion.choices[0].message
-    ) {
+
+    if (completion?.choices?.[0]?.message?.content) {
+      const content = completion.choices[0].message.content.trim();
+
       try {
-        const summaryData = JSON.parse(completion.choices[0].message.content);
-        version.summary = summaryData;
+        // First try to parse as JSON
+        const summaryData = JSON.parse(content);
+
+        if (
+          typeof summaryData.userIntent === "string" &&
+          typeof summaryData.technicalChanges === "string"
+        ) {
+          version.summary = {
+            userIntent: summaryData.userIntent.slice(0, 50),
+            technicalChanges: summaryData.technicalChanges.slice(0, 50),
+          };
+        } else {
+          // If structure is invalid, try to extract from the JSON content
+          const extracted = extractSummaryFromText(content);
+          version.summary = {
+            userIntent: extracted.userIntent.slice(0, 50),
+            technicalChanges: extracted.technicalChanges.slice(0, 50),
+          };
+        }
       } catch (parseError) {
-        console.error("Failed to parse summary JSON:", parseError);
+        // If JSON parsing fails, try to extract from the raw content
+        const extracted = extractSummaryFromText(content);
         version.summary = {
-          userIntent:
-            completion.choices[0].message.content.split("\n")[0] ||
-            "Parse error",
-          technicalChanges:
-            completion.choices[0].message.content.split("\n")[1] ||
-            "See changes in diagram",
+          userIntent: extracted.userIntent.slice(0, 50),
+          technicalChanges: extracted.technicalChanges.slice(0, 50),
         };
+        console.warn("Failed to parse summary JSON:", parseError);
       }
     } else {
       throw new Error("Invalid completion response format");
     }
-    updateVersionHistory();
   } catch (error) {
-    console.error("Failed to get summary:", error);
+    console.error("Summary request failed:", error);
+    // Provide a graceful fallback
     version.summary = {
-      userIntent: lastUserQuery.slice(0, 50) + "...",
-      technicalChanges: "Compare diagrams manually",
+      userIntent: lastUserQuery.slice(0, 50) || "Diagram updated",
+      technicalChanges: "View changes in diagram",
     };
+  } finally {
+    // Ensure the summary is properly formatted
+    if (version.summary) {
+      version.summary.userIntent = version.summary.userIntent
+        .replace(/^["'{}\[\]]+|["'{}\[\]]+$/g, "") // Remove any remaining JSON artifacts
+        .slice(0, 50);
+      version.summary.technicalChanges = version.summary.technicalChanges
+        .replace(/^["'{}\[\]]+|["'{}\[\]]+$/g, "")
+        .slice(0, 50);
+    }
     updateVersionHistory();
   }
+}
+
+function updateVersionHistory() {
+  const historyElement = document.getElementById("versionHistory");
+  historyElement.innerHTML = diagramVersions
+    .map(
+      (version) => `
+        <div class="version-item">
+          <div class="version-meta">
+            <div>
+              <span>#${version.id}</span>
+              <span>${new Date(version.timestamp).toLocaleTimeString()}</span>
+            </div>
+            <button 
+              class="version-restore" 
+              onclick="window.restoreVersion(${version.id})"
+            >
+              Restore
+            </button>
+          </div>
+          <div class="version-content">
+            ${
+              version.summary
+                ? `<div class="version-query">${
+                    version.summary.userIntent || "Update diagram"
+                  }</div>
+                   <div class="version-summary">${
+                     version.summary.technicalChanges || "View changes"
+                   }</div>`
+                : `<div class="version-query">Analyzing changes...</div>`
+            }
+          </div>
+        </div>
+      `
+    )
+    .join("");
 }
 
 window.restoreVersion = async (versionId) => {
@@ -866,7 +935,7 @@ toggleMuteButton.className = "control-button mic-button";
 // Create both mic icons (active and muted)
 const micActiveIcon = `
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-    <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/>
+    <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/>
   </svg>
 `;
 
