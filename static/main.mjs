@@ -877,3 +877,180 @@ function updateThemeIcons(theme) {
     darkIcon.style.display = "none";
   }
 }
+
+// Diagram templates
+const diagramTemplates = {
+  sequence: `sequenceDiagram
+    Alice->>John: Hello John, how are you?
+    John-->>Alice: Great!
+    Alice-)John: See you later!`,
+
+  flowchart: `flowchart LR
+    A[Start] --> B{Is it?}
+    B -->|Yes| C[OK]
+    C --> D[Rethink]
+    D --> B
+    B ---->|No| E[End]`,
+
+  class: `classDiagram
+    class Animal {
+      +String name
+      +move()
+      +eat()
+    }
+    class Bird {
+      +fly()
+    }
+    class Fish {
+      +swim()
+    }
+    Animal <|-- Bird
+    Animal <|-- Fish`,
+
+  state: `stateDiagram-v2
+    [*] --> Still
+    Still --> [*]
+    Still --> Moving
+    Moving --> Still
+    Moving --> Crash
+    Crash --> [*]`,
+
+  er: `erDiagram
+    CUSTOMER ||--o{ ORDER : places
+    ORDER ||--|{ LINE-ITEM : contains
+    CUSTOMER }|..|{ DELIVERY-ADDRESS : uses`,
+
+  gantt: `gantt
+    title Project Schedule
+    dateFormat  YYYY-MM-DD
+    section Planning
+    Design           :a1, 2024-01-01, 7d
+    section Development
+    Implementation   :a2, after a1, 14d
+    Testing         :a3, after a2, 7d`,
+
+  pie: `pie
+    title What do we spend time on?
+    "Development" : 45
+    "Testing" : 30
+    "Documentation" : 25`,
+
+  mindmap: `mindmap
+    root((Project))
+      Planning
+        Timeline
+        Resources
+      Development
+        Frontend
+        Backend
+      Testing
+        Unit Tests
+        Integration`,
+
+  git: `gitGraph
+    commit
+    branch develop
+    checkout develop
+    commit
+    commit
+    checkout main
+    merge develop
+    commit
+    commit`,
+
+  c4: `C4Context
+    title System Context diagram for Internet Banking System
+    Enterprise_Boundary(b0, "BankingSystem") {
+      Person(customer, "Banking Customer", "A customer of the bank")
+      System(banking_system, "Internet Banking System", "Allows customers to check their accounts")
+    }
+    Rel(customer, banking_system, "Uses")`,
+
+  journey: `journey
+    title My working day
+    section Go to work
+      Make tea: 5: Me
+      Go upstairs: 3: Me
+      Do work: 1: Me, Cat
+    section Go home
+      Go downstairs: 5: Me
+      Sit down: 5: Me`,
+
+  timeline: `timeline
+    title History of Social Media
+    2002 : LinkedIn
+    2004 : Facebook
+    2006 : Twitter
+    2010 : Instagram
+    2011 : Snapchat`,
+
+  sankey: `sankey-beta
+    Agricultural 'waste',Bio-conversion,124.729
+    Bio-conversion,Liquid,0.597
+    Bio-conversion,Losses,26.862
+    Bio-conversion,Solid,280.322
+    Bio-conversion,Gas,81.144`,
+
+  block: `block-beta
+    columns 3
+    space 2
+    block:one
+      space:1
+      [Component A]
+      [Component B]
+    end
+    block:two
+      space:1
+      [Component C]
+      [Component D]
+    end
+    block:three
+      space:1
+      [Component E]
+      [Component F]
+    end`,
+
+  requirement: `requirementDiagram
+    requirement test_req {
+    id: 1
+    text: the test text.
+    risk: high
+    verifymethod: test
+    }
+
+    element test_entity {
+    type: simulation
+    }
+
+    test_entity - satisfies -> test_req`,
+
+  quadrant: `quadrantChart
+    title Reach and Engagement of Campaigns
+    x-axis Low Reach --> High Reach
+    y-axis Low Engagement --> High Engagement
+    quadrant-1 We should expand
+    quadrant-2 Need to promote
+    quadrant-3 Re-evaluate
+    quadrant-4 May be improved
+    Campaign A: [0.3, 0.6]
+    Campaign B: [0.45, 0.23]
+    Campaign C: [0.57, 0.69]
+    Campaign D: [0.78, 0.34]
+    Campaign E: [0.40, 0.34]
+    Campaign F: [0.35, 0.78]`,
+};
+
+// Add event listeners for template buttons
+document.querySelectorAll(".diagram-template-btn").forEach((button) => {
+  button.addEventListener("click", async () => {
+    const diagramType = button.getAttribute("data-type");
+    const template = diagramTemplates[diagramType];
+    if (template) {
+      const diagramDefinition = document.getElementById("diagramDefinition");
+      diagramDefinition.value = template;
+      await updateDiagram(template);
+      addDiagramVersion(template, `Switch to ${diagramType} diagram template`);
+      sendText(getCurrentDiagramText());
+    }
+  });
+});
