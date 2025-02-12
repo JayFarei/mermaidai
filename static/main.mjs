@@ -30,6 +30,39 @@ function initializeMermaid(theme) {
 const savedTheme = localStorage.getItem("theme") || "light";
 initializeMermaid(savedTheme);
 
+// Default diagram template is the same as our initial diagram
+const DEFAULT_DIAGRAM = [
+  "sequenceDiagram;",
+  "    participant A as Browser Client;",
+  "    participant B as System;",
+  "    participant C as DynamoDB;",
+  "    A->>B: Request;",
+  "    B->>C: Query;",
+  "    C-->>B: Result;",
+  "    B-->>A: Response;",
+].join("\n");
+
+// Reset diagram function
+async function resetDiagram() {
+  if (
+    confirm(
+      "Are you sure you want to reset the diagram? All current changes will be lost."
+    )
+  ) {
+    const diagramInput = document.getElementById("diagramDefinition");
+    diagramInput.value = DEFAULT_DIAGRAM;
+    await updateDiagram(DEFAULT_DIAGRAM);
+    addDiagramVersion(DEFAULT_DIAGRAM, "Reset to default diagram");
+    lastUserQuery = "Reset diagram";
+    lastAssistantResponse = "Diagram reset to default template";
+    // Update the context with the new diagram
+    sendText(getCurrentDiagramText());
+  }
+}
+
+// Make resetDiagram available globally
+window.resetDiagram = resetDiagram;
+
 // Add version history tracking
 const diagramVersions = [];
 
@@ -286,20 +319,10 @@ async function copyToClipboard() {
   }
 }
 
-const defaultDiagram = [
-  "sequenceDiagram;",
-  "    participant A as Browser Client;",
-  "    participant B as System;",
-  "    participant C as DynamoDB;",
-  "    A->>B: Request;",
-  "    B->>C: Query;",
-  "    C-->>B: Result;",
-  "    B-->>A: Response;",
-].join("\n");
-
+// Initialize with the default diagram
 const diagramDefinition = document.getElementById("diagramDefinition");
-diagramDefinition.value = defaultDiagram;
-updateDiagram(defaultDiagram);
+diagramDefinition.value = DEFAULT_DIAGRAM;
+updateDiagram(DEFAULT_DIAGRAM);
 
 // Event Listeners
 document.getElementById("copyBtn").addEventListener("click", copyToClipboard);
@@ -475,7 +498,7 @@ try {
 }
 
 // Initialize with the default diagram version
-addDiagramVersion(defaultDiagram);
+addDiagramVersion(DEFAULT_DIAGRAM);
 
 // Add styles for the summary and microphone button
 const style = document.createElement("style");
