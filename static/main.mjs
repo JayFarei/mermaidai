@@ -535,6 +535,140 @@ addDiagramVersion(DEFAULT_DIAGRAM);
 // Add styles for the summary and microphone button
 const style = document.createElement("style");
 style.textContent = `
+  /* Sidebar layout */
+  .sidebar {
+    width: 320px;
+    background-color: var(--surface-color);
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    transition: background-color 0.3s ease;
+    overflow: hidden;
+  }
+
+  .sidebar-header {
+    flex-shrink: 0;
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .sidebar-content {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Sidebar sections */
+  .sidebar-section {
+    border-bottom: 1px solid var(--border-color);
+    background-color: var(--surface-color);
+  }
+
+  .sidebar-section-header {
+    width: 100%;
+    padding: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    user-select: none;
+    background-color: var(--surface-color);
+    border: none;
+    color: var(--text-color);
+    transition: background-color 0.2s ease;
+  }
+
+  .sidebar-section-header:hover {
+    background-color: var(--hover-color);
+  }
+
+  .header-content {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .header-content i {
+    font-size: 1rem;
+    color: var(--primary-color);
+  }
+
+  .header-content span {
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    color: var(--text-color);
+    font-weight: 600;
+  }
+
+  .chevron {
+    font-size: 0.875rem;
+    color: var(--text-color);
+    transition: transform 0.2s ease;
+  }
+
+  .sidebar-section.expanded .chevron {
+    transform: rotate(90deg);
+  }
+
+  .sidebar-section-content {
+    display: none;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .sidebar-section.expanded .sidebar-section-content {
+    display: block;
+    padding: 1rem;
+    max-height: none;
+    overflow-y: auto;
+  }
+
+  /* Section specific styles */
+  #contextSection .sidebar-section-content {
+    display: none;
+  }
+
+  #contextSection.expanded .sidebar-section-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  #contextSection textarea {
+    min-height: 100px;
+    resize: vertical;
+  }
+
+  #templatesSection .diagram-templates {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+  }
+
+  #historySection .sidebar-section-content {
+    padding-top: 0.5rem;
+  }
+
+  /* Scrollbar styling */
+  .sidebar-section-content::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .sidebar-section-content::-webkit-scrollbar-track {
+    background: var(--surface-color);
+  }
+
+  .sidebar-section-content::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 3px;
+  }
+
+  .sidebar-section-content::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-color);
+  }
+
+  /* Rest of the existing styles... */
   .version-summary {
     font-size: 0.75rem;
     color: var(--text-color);
@@ -682,6 +816,48 @@ style.textContent = `
   }
 `;
 document.head.appendChild(style);
+
+// Initialize sections after the DOM is loaded
+document.addEventListener("DOMContentLoaded", () => {
+  initializeSections();
+});
+
+// Initialize sections immediately as well (in case DOM is already loaded)
+initializeSections();
+
+function initializeSections() {
+  const sections = document.querySelectorAll(".sidebar-section");
+  sections.forEach((section) => {
+    const header = section.querySelector(".sidebar-section-header");
+    const content = section.querySelector(".sidebar-section-content");
+
+    // Set initial states
+    if (section.id === "historySection") {
+      section.classList.add("expanded");
+    } else {
+      section.classList.remove("expanded");
+    }
+
+    // Remove any existing click listeners
+    header.removeEventListener("click", toggleSection);
+    // Add new click listener
+    header.addEventListener("click", toggleSection);
+  });
+}
+
+function toggleSection(event) {
+  const header = event.currentTarget;
+  const section = header.closest(".sidebar-section");
+  const content = section.querySelector(".sidebar-section-content");
+
+  // Toggle the expanded class
+  section.classList.toggle("expanded");
+
+  // Update ARIA attributes for accessibility
+  const isExpanded = section.classList.contains("expanded");
+  header.setAttribute("aria-expanded", isExpanded);
+  content.setAttribute("aria-hidden", !isExpanded);
+}
 
 // Setup mute toggle functionality
 const toggleMuteButton = document.getElementById("toggleMute");

@@ -126,12 +126,20 @@
         margin: 0;
       }
 
-      .sidebar-controls {
+      .controls-section {
         padding: 1rem;
         border-bottom: 1px solid var(--border-color);
+      }
+
+      .controls-row {
         display: flex;
         gap: 0.5rem;
         justify-content: center;
+      }
+
+      .sidebar-content {
+        flex: 1;
+        overflow-y: auto;
       }
 
       .sidebar-section {
@@ -509,7 +517,7 @@
           </div>
         </div>
 
-        <div class="sidebar-section controls-section">
+        <div class="controls-section">
           <div class="controls-row">
             <button id="toggleMute" class="control-button"></button>
             <button id="disconnect" class="control-button"></button>
@@ -549,85 +557,115 @@
           </div>
         </div>
 
-        <div class="sidebar-section">
-          <h2>System Context</h2>
-          <textarea
-            id="contextInput"
-            placeholder="Add any context or specific instructions here..."
-          ></textarea>
-          <button class="btn-primary" id="updateContext">Update Context</button>
-        </div>
-        <div class="sidebar-section">
-          <h2>Version History</h2>
-          <div id="versionHistory"></div>
-        </div>
-        <div class="sidebar-section">
-          <h2>Diagram Templates</h2>
-          <div class="diagram-templates">
-            <button class="diagram-template-btn" data-type="sequence">
-              <i class="fas fa-exchange-alt"></i>
-              <span>Sequence</span>
+        <div class="sidebar-content">
+          <div class="sidebar-section" id="contextSection">
+            <button class="sidebar-section-header">
+              <div class="header-content">
+                <i class="fas fa-cog"></i>
+                <span>System Context</span>
+              </div>
+              <i class="fas fa-chevron-right chevron"></i>
             </button>
-            <button class="diagram-template-btn" data-type="flowchart">
-              <i class="fas fa-project-diagram"></i>
-              <span>Flowchart</span>
+            <div class="sidebar-section-content">
+              <textarea
+                id="contextInput"
+                placeholder="Add any context or specific instructions here..."
+              ></textarea>
+              <button class="btn-primary" id="updateContext">
+                Update Context
+              </button>
+            </div>
+          </div>
+
+          <div class="sidebar-section" id="templatesSection">
+            <button class="sidebar-section-header">
+              <div class="header-content">
+                <i class="fas fa-shapes"></i>
+                <span>Diagram Templates</span>
+              </div>
+              <i class="fas fa-chevron-right chevron"></i>
             </button>
-            <button class="diagram-template-btn" data-type="class">
-              <i class="fas fa-cubes"></i>
-              <span>Class</span>
+            <div class="sidebar-section-content">
+              <div class="diagram-templates">
+                <button class="diagram-template-btn" data-type="sequence">
+                  <i class="fas fa-exchange-alt"></i>
+                  <span>Sequence</span>
+                </button>
+                <button class="diagram-template-btn" data-type="flowchart">
+                  <i class="fas fa-project-diagram"></i>
+                  <span>Flowchart</span>
+                </button>
+                <button class="diagram-template-btn" data-type="class">
+                  <i class="fas fa-cubes"></i>
+                  <span>Class</span>
+                </button>
+                <button class="diagram-template-btn" data-type="state">
+                  <i class="fas fa-random"></i>
+                  <span>State</span>
+                </button>
+                <button class="diagram-template-btn" data-type="er">
+                  <i class="fas fa-database"></i>
+                  <span>ER</span>
+                </button>
+                <button class="diagram-template-btn" data-type="gantt">
+                  <i class="fas fa-tasks"></i>
+                  <span>Gantt</span>
+                </button>
+                <button class="diagram-template-btn" data-type="pie">
+                  <i class="fas fa-chart-pie"></i>
+                  <span>Pie</span>
+                </button>
+                <button class="diagram-template-btn" data-type="mindmap">
+                  <i class="fas fa-brain"></i>
+                  <span>Mindmap</span>
+                </button>
+                <button class="diagram-template-btn" data-type="git">
+                  <i class="fas fa-code-branch"></i>
+                  <span>Git Graph</span>
+                </button>
+                <button class="diagram-template-btn" data-type="c4">
+                  <i class="fas fa-sitemap"></i>
+                  <span>C4</span>
+                </button>
+                <button class="diagram-template-btn" data-type="journey">
+                  <i class="fas fa-road"></i>
+                  <span>Journey</span>
+                </button>
+                <button class="diagram-template-btn" data-type="timeline">
+                  <i class="fas fa-clock"></i>
+                  <span>Timeline</span>
+                </button>
+                <button class="diagram-template-btn" data-type="sankey">
+                  <i class="fas fa-stream"></i>
+                  <span>Sankey</span>
+                </button>
+                <button class="diagram-template-btn" data-type="block">
+                  <i class="fas fa-th-large"></i>
+                  <span>Block</span>
+                </button>
+                <button class="diagram-template-btn" data-type="requirement">
+                  <i class="fas fa-clipboard-check"></i>
+                  <span>Requirement</span>
+                </button>
+                <button class="diagram-template-btn" data-type="quadrant">
+                  <i class="fas fa-th"></i>
+                  <span>Quadrant</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="sidebar-section expanded" id="historySection">
+            <button class="sidebar-section-header">
+              <div class="header-content">
+                <i class="fas fa-history"></i>
+                <span>Version History</span>
+              </div>
+              <i class="fas fa-chevron-right chevron"></i>
             </button>
-            <button class="diagram-template-btn" data-type="state">
-              <i class="fas fa-random"></i>
-              <span>State</span>
-            </button>
-            <button class="diagram-template-btn" data-type="er">
-              <i class="fas fa-database"></i>
-              <span>ER</span>
-            </button>
-            <button class="diagram-template-btn" data-type="gantt">
-              <i class="fas fa-tasks"></i>
-              <span>Gantt</span>
-            </button>
-            <button class="diagram-template-btn" data-type="pie">
-              <i class="fas fa-chart-pie"></i>
-              <span>Pie</span>
-            </button>
-            <button class="diagram-template-btn" data-type="mindmap">
-              <i class="fas fa-brain"></i>
-              <span>Mindmap</span>
-            </button>
-            <button class="diagram-template-btn" data-type="git">
-              <i class="fas fa-code-branch"></i>
-              <span>Git Graph</span>
-            </button>
-            <button class="diagram-template-btn" data-type="c4">
-              <i class="fas fa-sitemap"></i>
-              <span>C4</span>
-            </button>
-            <button class="diagram-template-btn" data-type="journey">
-              <i class="fas fa-road"></i>
-              <span>Journey</span>
-            </button>
-            <button class="diagram-template-btn" data-type="timeline">
-              <i class="fas fa-clock"></i>
-              <span>Timeline</span>
-            </button>
-            <button class="diagram-template-btn" data-type="sankey">
-              <i class="fas fa-stream"></i>
-              <span>Sankey</span>
-            </button>
-            <button class="diagram-template-btn" data-type="block">
-              <i class="fas fa-th-large"></i>
-              <span>Block</span>
-            </button>
-            <button class="diagram-template-btn" data-type="requirement">
-              <i class="fas fa-clipboard-check"></i>
-              <span>Requirement</span>
-            </button>
-            <button class="diagram-template-btn" data-type="quadrant">
-              <i class="fas fa-th"></i>
-              <span>Quadrant</span>
-            </button>
+            <div class="sidebar-section-content">
+              <div id="versionHistory"></div>
+            </div>
           </div>
         </div>
       </div>
