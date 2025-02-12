@@ -1,6 +1,34 @@
 import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
 
-mermaid.initialize({ startOnLoad: false });
+// Initialize mermaid with theme configuration
+function initializeMermaid(theme) {
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: theme === "dark" ? "dark" : "default",
+    darkMode: theme === "dark",
+    sequence: {
+      actorFontSize: 14,
+      noteFontSize: 14,
+      messageFontSize: 14,
+      actorFontFamily: '"Segoe UI", Arial, sans-serif',
+      noteFontFamily: '"Segoe UI", Arial, sans-serif',
+      messageFontFamily: '"Segoe UI", Arial, sans-serif',
+      actorFontWeight: 500,
+      noteFontWeight: 400,
+      messageFontWeight: 400,
+      wrap: true,
+      useMaxWidth: true,
+      boxMargin: 8,
+      boxTextMargin: 4,
+      noteMargin: 8,
+      messageMargin: 24,
+    },
+  });
+}
+
+// Initialize with saved theme
+const savedTheme = localStorage.getItem("theme") || "light";
+initializeMermaid(savedTheme);
 
 // Add version history tracking
 const diagramVersions = [];
@@ -454,26 +482,36 @@ const style = document.createElement("style");
 style.textContent = `
   .version-summary {
     font-size: 0.75rem;
-    color: #64748b;
+    color: var(--text-color);
     margin-top: 0.25rem;
     font-style: italic;
+  }
+
+  .controls-section {
+    padding: 1rem;
+  }
+
+  .controls-row {
+    display: flex;
+    justify-content: center;
+    gap: 0.75rem;
+    align-items: center;
   }
 
   .control-button {
     width: 48px;
     height: 48px;
     border-radius: 50%;
-    border: 2px solid #e2e8f0;
-    background: #ffffff;
-    color: #1a1a1a;
+    border: 2px solid var(--border-color);
+    background: var(--surface-color);
+    color: var(--text-color);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     position: relative;
     transition: all 0.2s ease;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-    margin: 0 4px;
+    box-shadow: 0 2px 5px var(--shadow-color);
   }
 
   .control-button svg {
@@ -481,10 +519,12 @@ style.textContent = `
     height: 32px;
     transition: transform 0.2s ease;
     fill: currentColor;
+    stroke: currentColor;
   }
 
   .control-button:hover {
-    border-color: currentColor;
+    border-color: var(--primary-color);
+    background: var(--hover-color);
   }
 
   .control-button:hover svg {
@@ -494,7 +534,7 @@ style.textContent = `
   .control-button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
-    border-color: #e2e8f0;
+    border-color: var(--border-color);
   }
 
   .control-button:disabled:hover svg {
@@ -503,17 +543,18 @@ style.textContent = `
 
   /* Mic button specific styles */
   .mic-button.muted {
-    background: #fee2e2;
-    color: #dc2626;
-    border-color: #dc2626;
+    background: var(--danger-color);
+    color: var(--button-text);
+    border-color: var(--danger-color);
   }
 
   .mic-button.muted:hover {
-    background: #fecaca;
+    background: var(--danger-color);
+    opacity: 0.9;
   }
 
   .mic-button:not(.muted) svg {
-    color: #2563eb;
+    color: var(--primary-color);
   }
 
   /* Connection button states */
@@ -537,10 +578,11 @@ style.textContent = `
     color: rgb(var(--pulse-color));
     border-color: rgb(var(--pulse-color));
     animation: pulse 2s infinite;
+    background: var(--surface-color);
   }
 
   .disconnect-button:hover {
-    background: rgba(var(--pulse-color), 0.1);
+    background: var(--hover-color);
   }
 
   .disconnect-button.connecting {
@@ -557,7 +599,7 @@ style.textContent = `
   }
 
   .disconnect-button.disconnected:hover {
-    background: rgba(var(--pulse-color), 0.1);
+    background: var(--hover-color);
   }
 `;
 document.head.appendChild(style);
@@ -800,3 +842,38 @@ channel.addEventListener("message", async (ev) => {
     showError(JSON.stringify(msg, null, 2));
   }
 });
+
+// Theme toggle functionality
+const themeToggle = document.getElementById("themeToggle");
+const lightIcon = themeToggle.querySelector(".theme-icon-light");
+const darkIcon = themeToggle.querySelector(".theme-icon-dark");
+
+// Check for saved theme preference or default to light
+document.documentElement.dataset.theme = savedTheme;
+updateThemeIcons(savedTheme);
+
+themeToggle.addEventListener("click", async () => {
+  const currentTheme = document.documentElement.dataset.theme;
+  const newTheme = currentTheme === "dark" ? "light" : "dark";
+
+  document.documentElement.dataset.theme = newTheme;
+  localStorage.setItem("theme", newTheme);
+  updateThemeIcons(newTheme);
+
+  // Reinitialize mermaid with new theme
+  initializeMermaid(newTheme);
+
+  // Re-render current diagram with new theme
+  const currentDefinition = document.getElementById("diagramDefinition").value;
+  await updateDiagram(currentDefinition);
+});
+
+function updateThemeIcons(theme) {
+  if (theme === "dark") {
+    lightIcon.style.display = "none";
+    darkIcon.style.display = "block";
+  } else {
+    lightIcon.style.display = "block";
+    darkIcon.style.display = "none";
+  }
+}
